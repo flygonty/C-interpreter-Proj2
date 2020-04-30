@@ -66,9 +66,9 @@ enum TokenType
     RS, // >>
     LS, // << 
     SEMICOLON, // ;
-    DOT, // ,
+    COMMA, // ,
     CONDITION, // ?
-    COMMA // :
+    COLON // :
 };
 
 struct Token {
@@ -204,10 +204,18 @@ Token Scanner::GetToken() {
       } // else
     } // else if 
     else if ( peek_char == '*' ) {
-      char get_char = cin.get();
-      temp_Token.type = MULT;
-      temp_Token.tokenValue = "*";
-
+      char get_char = cin.get() ;
+      char temp_peek = cin.peek() ;
+      if ( temp_peek == '=' ) {
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        get_char = cin.get();
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        temp_Token.type = TE;
+      } // if
+      else {
+        temp_Token.type = MULT;
+        temp_Token.tokenValue = "*";
+      } // else 
     } // else if
     else if ( peek_char == '/' ) {
       // check whether it is comment or divide
@@ -225,6 +233,12 @@ Token Scanner::GetToken() {
 
         temp_Token = GetToken() ;
       } // if
+      else if ( temp_peek == '=' ) {
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        get_char = cin.get();
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        temp_Token.type = DE;
+      } // else if
       else {
         // it's divide
         temp_Token.type = DIV;
@@ -233,8 +247,18 @@ Token Scanner::GetToken() {
     } // else if 
     else if ( peek_char == '%' ) {
       char get_char = cin.get() ;
-      temp_Token.type = MOD ;
-      temp_Token.tokenValue = "%" ;
+      char temp_peek = cin.peek() ;
+      if ( temp_peek == '=' ) {
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        get_char = cin.get();
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        temp_Token.type = RE;
+      } // if
+      else {
+        temp_Token.type = MOD;
+        temp_Token.tokenValue = "%";
+      } // else 
+
     } // else if
     else if ( peek_char == '^' ) {
       char get_char = cin.get() ;
@@ -251,6 +275,12 @@ Token Scanner::GetToken() {
         temp_Token.tokenValue = temp_Token.tokenValue + get_char;
         temp_Token.type = GE;
       } // if
+      else if ( temp_peek == '>' ) {
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        get_char = cin.get();
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        temp_Token.type = RS;
+      } // else if
       else {
         temp_Token.type = GREATER;
         temp_Token.tokenValue = ">";
@@ -266,6 +296,12 @@ Token Scanner::GetToken() {
         temp_Token.tokenValue = temp_Token.tokenValue + get_char;
         temp_Token.type = LE;
       } // if
+      else if ( temp_peek == '<' ) {
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        get_char = cin.get();
+        temp_Token.tokenValue = temp_Token.tokenValue + get_char;
+        temp_Token.type = LS;
+      } // else if
       else {
         temp_Token.type = LESS;
         temp_Token.tokenValue = "<";
@@ -332,11 +368,23 @@ Token Scanner::GetToken() {
       char get_char = cin.get();
       temp_Token.type = SEMICOLON;
       temp_Token.tokenValue = ";";
-    } // else if 
+    } // else if
+    else if ( peek_char == ',' ) {
+      char get_char = cin.get();
+      char temp_peek = cin.peek();
+      temp_Token.type = COMMA;
+      temp_Token.tokenValue = ",";
+    } // else if
+    else if ( peek_char == '?' ) {
+      char get_char = cin.get();
+      char temp_peek = cin.peek();
+      temp_Token.type = CONDITION;
+      temp_Token.tokenValue = "?";
+    } // else if
     else if ( peek_char == ':' ) {
       char get_char = cin.get();
       char temp_peek = cin.peek();
-      temp_Token.type = IDENT; // Unrecognized token
+      temp_Token.type = COLON;
       temp_Token.tokenValue = ":";
     } // else if
     else if ( peek_char >= '0' && peek_char <= '9' ) {
