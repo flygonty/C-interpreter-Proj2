@@ -515,6 +515,47 @@ private:
   vector <Id> mIdList; // store id's value
 
 public:
+  bool User_input() ;
+  void Definition( float &value, bool &correct ) ;
+  void Type_specifier() ;
+  void Function_definition_ordeclarators() ;
+  void Rest_of_declarator() ;
+  void Function_definition_without_ID() ;
+  void Formal_parameter_list() ;
+  void Compound_statement() ;
+  void Declaration() ;
+  void Statement( float &value, bool &correct ) ;
+  void Expression() ;
+  void Basic_expression() ;
+  void Rest_of_Identifier_started_basic_exp() ;
+  void Rest_of_PPMM_Identifier_started_basic_exp() ;
+  void Sign() ;
+  void Actual_parameter_list() ;
+  void Assignment_operator() ;
+  void Romce_and_romloe() ;
+  void Rest_of_maybe_logical_OR_exp() ;
+  void Maybe_logical_AND_exp() ;
+  void Rest_of_maybe_logical_AND_exp() ;
+  void Maybe_bit_OR_exp() ;
+  void Rest_of_maybe_bit_OR_exp() ;
+  void Maybe_bit_ex_OR_exp() ;
+  void Rest_of_maybe_bit_ex_OR_exp() ;
+  void Maybe_bit_AND_exp() ;
+  void Rest_of_maybe_bit_AND_exp() ;
+  void Maybe_equality_exp() ;
+  void Rest_of_maybe_equality_exp() ;
+  void Maybe_relational_exp() ;
+  void Rest_of_maybe_relational_exp() ;
+  void Maybe_shift_exp() ;
+  void Rest_of_maybe_shift_exp() ;
+  void Maybe_additive_exp() ;
+  void Rest_of_maybe_additive_exp() ;
+  void Maybe_mult_exp() ;
+  void Rest_of_maybe_mult_exp() ;
+  void Unary_exp() ;
+  void Signed_unary_exp() ;
+  void Unsigned_unary_exp() ;
+
 
   bool CheckInside( string& id ) ;
   void ChangeInsideValue( string id, float value ) ; // change vector's id value
@@ -533,6 +574,59 @@ public:
   void Print_Int( float value ) ;
 }; // Parser
 
+bool Parser::User_input() {
+  // : ( definition | statement ) { definition | statement }
+  float definition1Value = 0.0, statement1Value = 0.0 ;
+  bool definition1Correct = false, statement1Correct = false ;
+  Definition( definition1Value, definition1Correct ) ;
+  Statement( statement1Value, statement1Correct ) ;
+  if ( !definition1Correct && !statement1Correct ) {
+    // error
+  } // if
+
+  do {
+    Definition( definition1Value, definition1Correct ) ;
+    Statement( statement1Value, statement1Correct ) ;
+    if ( !definition1Correct && !statement1Correct ) {
+      // error
+    } // if
+  } while( 1 ) ;
+} // Parser::User_input()
+
+void Parser::Definition( float &value, bool &correct ) {
+  // :           VOID Identifier function_definition_without_ID 
+  // | type_specifier Identifier function_definition_or_declarators
+
+  Token peek, token ;
+  peek = mScanner.PeekToken() ;
+  if ( peek.type == VOID ) {
+    correct = true ;
+  } // if
+  else if ( peek.type == INT && peek.type == CHAR && peek.type == FLOAT 
+            && peek.type == STRING && peek.type == BOOL ) {
+    token = mScanner.GetToken() ; // get the void 
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == IDENT ) {
+    	
+    } // if
+    else {
+      value = 0.0 ;
+      correct = false ;
+      return ;
+    } // else
+
+    correct = true ;
+  } // else if
+  else {
+    // no match token
+    value = 0.0 ;
+    correct = true ; 
+  } // else
+} // Parser::Declaration
+
+void Parser::Statement( float &value, bool &correct ) {
+	
+} // Parser::Statement
 
 bool Parser::CheckInside( string& id ) {
   // check this id has already in the vector
@@ -666,5 +760,4 @@ int main() {
       cout << token.type << "       " << token.tokenValue << endl << endl ;
   } // while()
 } // main()
-
 
