@@ -520,7 +520,7 @@ public:
   void Type_specifier() ;
   void Function_definition_ordeclarators() ;
   void Rest_of_declarator() ;
-  void Function_definition_without_ID() ;
+  void Function_definition_without_ID( float &value, bool &correct ) ;
   void Formal_parameter_list() ;
   void Compound_statement() ;
   void Declaration() ;
@@ -556,6 +556,8 @@ public:
   void Signed_unary_exp() ;
   void Unsigned_unary_exp() ;
 
+  void Print_Definition_Variable( string ID ) ;
+  void Print_Definition_Function( string ID ) ;
 
   bool CheckInside( string& id ) ;
   void ChangeInsideValue( string id, float value ) ; // change vector's id value
@@ -597,6 +599,9 @@ void Parser::Definition( float &value, bool &correct ) {
   // :           VOID Identifier function_definition_without_ID 
   // | type_specifier Identifier function_definition_or_declarators
 
+  float F_d_w_ID1Value = 0.0 ;
+  bool F_d_w_ID1Correct = false ;
+
   Token peek, token ;
   peek = mScanner.PeekToken() ;
   if ( peek.type == VOID ) {
@@ -607,7 +612,16 @@ void Parser::Definition( float &value, bool &correct ) {
     token = mScanner.GetToken() ; // get the void 
     peek = mScanner.PeekToken() ;
     if ( peek.type == IDENT ) {
-    	
+      token = mScanner.GetToken() ; // get Identifier
+      Function_definition_without_ID( F_d_w_ID1Value, F_d_w_ID1Correct ) ;
+      if ( !F_d_w_ID1Correct ) {
+        value = 0.0 ;
+        correct = false ;
+        return ;
+      } // if
+      else {
+        
+      } // else
     } // if
     else {
       value = 0.0 ;
@@ -616,17 +630,31 @@ void Parser::Definition( float &value, bool &correct ) {
     } // else
 
     correct = true ;
+    return ;
   } // else if
   else {
     // no match token
     value = 0.0 ;
-    correct = true ; 
+    correct = false ;
+    return ;
   } // else
-} // Parser::Declaration
+} // Parser::Definition()
 
 void Parser::Statement( float &value, bool &correct ) {
 	
-} // Parser::Statement
+} // Parser::Statement()
+
+void Parser::Function_definition_without_ID( float &value, bool &correct ) {
+	
+} // Parser::Function_definition_without_ID()
+
+void Parser::Print_Definition_Variable( string ID ) {
+  printf( "Definition of %s entered ...\n", ID.c_str() ) ;
+} // Parser::Print_Definition_Variable()
+
+void Print_Definition_Function( string ID ) {
+  printf( "Definition of %s() entered ...\n", ID.c_str() ) ;
+} // Parser::Print_Definition_Function()
 
 bool Parser::CheckInside( string& id ) {
   // check this id has already in the vector
