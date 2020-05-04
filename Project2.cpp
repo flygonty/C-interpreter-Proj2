@@ -13,8 +13,6 @@ using namespace std;
 
 static int uTestNum = 0 ;
 static float uTolerance = 0.0001; // tolerance number
-static bool uFloat = false ;
-static bool uBoolean = false ; // check whether has bool op
 
 enum TokenType
 {
@@ -77,10 +75,10 @@ struct Token {
   int line;
 };
 
-struct Id {
-  string id;
-  float float_value;
-  int int_value ;
+struct Node {
+  Token token ;
+  Node* leftchild ;
+  Node* rightchild ;
 };
 
 class Scanner {
@@ -95,6 +93,7 @@ public:
 
 Scanner::Scanner() {
   // initial constructor
+  mLine = 1 ;
 } // Scanner::Scanner()
 
 Token Scanner::PeekToken() {
@@ -512,61 +511,61 @@ Token Scanner::GetToken() {
 class Parser {
 private:
   Scanner mScanner;
-  vector <Id> mIdList; // store id's value
-
+  Node* mRoot ;
 public:
+  Node* GetRoot() ;
+  Node* CreateNewNode() ;
+  bool IsLeaf() ;
+  void BuildTree() ;
+
+
   bool User_input() ;
-  void Definition( float &value, bool &correct ) ;
-  void Type_specifier() ;
-  void Function_definition_ordeclarators() ;
-  void Rest_of_declarator() ;
-  void Function_definition_without_ID( float &value, bool &correct ) ;
-  void Formal_parameter_list() ;
-  void Compound_statement() ;
-  void Declaration() ;
-  void Statement( float &value, bool &correct ) ;
-  void Expression() ;
-  void Basic_expression() ;
-  void Rest_of_Identifier_started_basic_exp() ;
-  void Rest_of_PPMM_Identifier_started_basic_exp() ;
-  void Sign() ;
-  void Actual_parameter_list() ;
-  void Assignment_operator() ;
-  void Romce_and_romloe() ;
-  void Rest_of_maybe_logical_OR_exp() ;
-  void Maybe_logical_AND_exp() ;
-  void Rest_of_maybe_logical_AND_exp() ;
-  void Maybe_bit_OR_exp() ;
-  void Rest_of_maybe_bit_OR_exp() ;
-  void Maybe_bit_ex_OR_exp() ;
-  void Rest_of_maybe_bit_ex_OR_exp() ;
-  void Maybe_bit_AND_exp() ;
-  void Rest_of_maybe_bit_AND_exp() ;
-  void Maybe_equality_exp() ;
-  void Rest_of_maybe_equality_exp() ;
-  void Maybe_relational_exp() ;
-  void Rest_of_maybe_relational_exp() ;
-  void Maybe_shift_exp() ;
-  void Rest_of_maybe_shift_exp() ;
-  void Maybe_additive_exp() ;
-  void Rest_of_maybe_additive_exp() ;
-  void Maybe_mult_exp() ;
-  void Rest_of_maybe_mult_exp() ;
-  void Unary_exp() ;
-  void Signed_unary_exp() ;
-  void Unsigned_unary_exp() ;
+  void Definition( bool &correct ) ;
+  void Type_specifier( bool &correct ) ;
+  void Function_definition_ordeclarators( bool &correct ) ;
+  void Rest_of_declarator( bool &correct ) ;
+  void Function_definition_without_ID( bool &correct ) ;
+  void Formal_parameter_list( bool &correct ) ;
+  void Compound_statement( bool &correct ) ;
+  void Declaration( bool &correct ) ;
+  void Statement( bool &correct ) ;
+  void Expression( bool &correct ) ;
+  void Basic_expression( bool &correct ) ;
+  void Rest_of_Identifier_started_basic_exp( bool &correct ) ;
+  void Rest_of_PPMM_Identifier_started_basic_exp( bool &correct ) ;
+  void Sign( bool &correct ) ;
+  void Actual_parameter_list( bool &correct ) ;
+  void Assignment_operator( bool &correct ) ;
+  void Romce_and_romloe( bool &correct ) ;
+  void Rest_of_maybe_logical_OR_exp( bool &correct ) ;
+  void Maybe_logical_AND_exp( bool &correct ) ;
+  void Rest_of_maybe_logical_AND_exp( bool &correct ) ;
+  void Maybe_bit_OR_exp( bool &correct ) ;
+  void Rest_of_maybe_bit_OR_exp( bool &correct ) ;
+  void Maybe_bit_ex_OR_exp( bool &correct ) ;
+  void Rest_of_maybe_bit_ex_OR_exp( bool &correct ) ;
+  void Maybe_bit_AND_exp( bool &correct ) ;
+  void Rest_of_maybe_bit_AND_exp( bool &correct ) ;
+  void Maybe_equality_exp( bool &correct ) ;
+  void Rest_of_maybe_equality_exp( bool &correct ) ;
+  void Maybe_relational_exp( bool &correct ) ;
+  void Rest_of_maybe_relational_exp( bool &correct ) ;
+  void Maybe_shift_exp( bool &correct ) ;
+  void Rest_of_maybe_shift_exp( bool &correct ) ;
+  void Maybe_additive_exp( bool &correct ) ;
+  void Rest_of_maybe_additive_exp( bool &correct ) ;
+  void Maybe_mult_exp( bool &correct ) ;
+  void Rest_of_maybe_mult_exp( bool &correct ) ;
+  void Unary_exp( bool &correct ) ;
+  void Signed_unary_exp( bool &correct ) ;
+  void Unsigned_unary_exp( bool &correct ) ;
 
   void Print_Definition_Variable( string ID ) ;
   void Print_Definition_Function( string ID ) ;
 
-  bool CheckInside( string& id ) ;
-  void ChangeInsideValue( string id, float value ) ; // change vector's id value
-  void InitID( Id id ) ;
 
   bool IsRecognized( string& token ) ;
-  bool HasDot( string& token ) ;
   void ErrorProcess() ;
-  bool WrongFloat( string& token ) ;
   
   void Print_Unrecognized( string token ) ;
   void Print_Unexpected( string token ) ;
@@ -578,71 +577,12 @@ public:
 
 bool Parser::User_input() {
   // : ( definition | statement ) { definition | statement }
-  float definition1Value = 0.0, statement1Value = 0.0 ;
-  bool definition1Correct = false, statement1Correct = false ;
-  Definition( definition1Value, definition1Correct ) ;
-  Statement( statement1Value, statement1Correct ) ;
-  if ( !definition1Correct && !statement1Correct ) {
-    // error
-  } // if
-
-  do {
-    Definition( definition1Value, definition1Correct ) ;
-    Statement( statement1Value, statement1Correct ) ;
-    if ( !definition1Correct && !statement1Correct ) {
-      // error
-    } // if
-  } while( 1 ) ;
 } // Parser::User_input()
 
 void Parser::Definition( float &value, bool &correct ) {
   // :           VOID Identifier function_definition_without_ID 
   // | type_specifier Identifier function_definition_or_declarators
-
-  float F_d_w_ID1Value = 0.0 ;
-  bool F_d_w_ID1Correct = false ;
-
-  Token peek, token ;
-  peek = mScanner.PeekToken() ;
-  if ( peek.type == VOID ) {
-    correct = true ;
-  } // if
-  else if ( peek.type == INT && peek.type == CHAR && peek.type == FLOAT 
-            && peek.type == STRING && peek.type == BOOL ) {
-    token = mScanner.GetToken() ; // get the void 
-    peek = mScanner.PeekToken() ;
-    if ( peek.type == IDENT ) {
-      token = mScanner.GetToken() ; // get Identifier
-      Function_definition_without_ID( F_d_w_ID1Value, F_d_w_ID1Correct ) ;
-      if ( !F_d_w_ID1Correct ) {
-        value = 0.0 ;
-        correct = false ;
-        return ;
-      } // if
-      else {
-        
-      } // else
-    } // if
-    else {
-      value = 0.0 ;
-      correct = false ;
-      return ;
-    } // else
-
-    correct = true ;
-    return ;
-  } // else if
-  else {
-    // no match token
-    value = 0.0 ;
-    correct = false ;
-    return ;
-  } // else
 } // Parser::Definition()
-
-void Parser::Statement( float &value, bool &correct ) {
-	
-} // Parser::Statement()
 
 void Parser::Function_definition_without_ID( float &value, bool &correct ) {
 	
@@ -656,40 +596,7 @@ void Print_Definition_Function( string ID ) {
   printf( "Definition of %s() entered ...\n", ID.c_str() ) ;
 } // Parser::Print_Definition_Function()
 
-bool Parser::CheckInside( string& id ) {
-  // check this id has already in the vector
-  for ( int i = 0 ; i < mIdList.size() ; i++ ) {
-    if ( strcmp( id.c_str(), mIdList[i].id.c_str() ) == 0 ) {
-      return true;
-    } // if
-  } // for
-  
-  return false;
-} // Parser::CheckInside()
 
-void Parser::ChangeInsideValue( string id, float value ) {
-  // renew the value in the id
-  for ( int i = 0 ; i < mIdList.size() ; i++ ) {
-    if ( strcmp( id.c_str(), mIdList[i].id.c_str() ) == 0 ) {
-      // change inside value
-      if ( uFloat ) { 
-        mIdList.at( i ).float_value = value ;
-        mIdList.at( i ).int_value = NUM_INFINITY ;
-      } // if 
-      else {
-        mIdList.at( i ).int_value = value ;
-        mIdList.at( i ).float_value = NUM_INFINITY ;
-      } // else
-    } // if
-  } // for
-} // Parser::ChangeInsideValue() 
-
-
-void Parser::InitID( Id id ) {
-  id.id = "" ;
-  id.float_value = NUM_INFINITY ;
-  id.int_value = NUM_INFINITY ;
-} // Parser::InitID()
 
 bool Parser::IsRecognized( string& token ) {
   // determine the token is recognized
@@ -714,33 +621,6 @@ bool Parser::IsRecognized( string& token ) {
 
   return true ;
 } // Parser::IsRecognized()
-
-bool Parser::HasDot( string& token ) {
-  // determine the token value is float 
-  for ( int i = 0 ; i < token.size() ; i++ ) {
-    if ( token[i] == '.' ) {
-      return true ;
-    } // if
-  } // for
-  
-  return false ;
-} // Parser::HasDot()
-
-bool Parser::WrongFloat( string& token ) {
-  // try to catch 3.4.5 wrong float case
-  int checkDot = 0 ;
-  for ( int i = 0 ; i < token.size() ; i++ ) {
-    if ( token[i] == '.' ) {
-      checkDot++ ;
-    } // if
-
-    if ( checkDot >= 2 ) {
-      return true ;
-    } // if
-  } // for
-  
-  return false ;
-} // Parser::WrongFloat()
 
 void Parser::ErrorProcess() {
   // read all garbage char
@@ -774,6 +654,11 @@ void Parser::Print_Int( float value ) {
   int num = value ; // float to string
   printf( "%d\n", num ) ;
 } // Parser::Print_Int()
+
+class Eval {
+  private :
+  public :
+};
 
 int main() {
   char ch = '\0' ; // read '\n'
