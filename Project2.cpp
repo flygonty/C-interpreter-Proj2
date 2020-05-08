@@ -75,11 +75,18 @@ struct Token {
   int line;
 };
 
-struct Node {
-  Token token ;
-  Node* leftchild ;
-  Node* rightchild ;
+struct While {
+  vector <string> condition ;
+  vector <string> statement ;
 };
+
+struct Function {
+  vector <string> type ;
+  vector <string> type_of_parameter ;
+  vector <string> parameter ;
+  vector <string> statement ;
+};
+
 
 class Scanner {
 private:
@@ -511,18 +518,15 @@ Token Scanner::GetToken() {
 class Parser {
 private:
   Scanner mScanner;
-  Node* mRoot ;
+  vector <Function> mFunctionList ;
+  vector <string> mVariableList ;
+  vector <Token> mTokenList ; // store token and give it to eval
 public:
-  Node* GetRoot() ;
-  Node* CreateNewNode() ;
-  bool IsLeaf() ;
-  void BuildTree() ;
-
 
   bool User_input() ;
   void Definition( bool &correct ) ;
-  void Type_specifier( bool &correct ) ;
-  void Function_definition_ordeclarators( bool &correct ) ;
+  bool Type_specifier( Token token ) ;
+  void Function_definition_or_declarators( bool &correct ) ;
   void Rest_of_declarator( bool &correct ) ;
   void Function_definition_without_ID( bool &correct ) ;
   void Formal_parameter_list( bool &correct ) ;
@@ -571,22 +575,158 @@ public:
   void Print_Unexpected( string token ) ;
   void Print_Undefined( string token ) ;
 
-  void Print_Float( float value ) ;
-  void Print_Int( float value ) ;
 }; // Parser
 
 bool Parser::User_input() {
   // : ( definition | statement ) { definition | statement }
 } // Parser::User_input()
 
-void Parser::Definition( float &value, bool &correct ) {
+void Parser::Definition( bool &correct ) {
   // :           VOID Identifier function_definition_without_ID 
   // | type_specifier Identifier function_definition_or_declarators
+  Token token, peek ;
+  bool F_d_w_ID = false, F_d_o_d = false ;
+  peek = mScanner.PeekToken() ;
+  if ( peek.type == VOID ) {
+    token = mScanner.GetToken() ; // get the void token
+    peek = mScanner.PeekToken() ; // peek IDENT
+    if ( peek.type == IDENT ) {
+      Function_definition_without_ID( F_d_w_ID ) ;
+      if ( !F_d_w_ID ) {
+        // error
+      } // if
+    } // if
+    else {
+      // error
+      // 1. Unrecognized
+      // 2. Unexpected
+    } // else
+  } // if
+  else if ( Type_specifier( peek ) ) {
+    token = mScanner.GetToken() ; // get the Type token
+    peek = mScanner.PeekToken() ; // peek IDENT
+    if ( peek.type == IDENT ) {
+      Function_definition_or_declarators( F_d_o_d ) ;
+      if ( !F_d_o_d ) {
+        // error
+      } // if
+    } // if
+    else {
+      // error
+      // 1. Unrecognized
+      // 2. Unexpected
+    } // else
+  } // else if
+  else {
+    // error
+    // 1. Unrecognized
+    // 2. Unexpected
+  } // else
 } // Parser::Definition()
 
-void Parser::Function_definition_without_ID( float &value, bool &correct ) {
-	
+bool Parser::Type_specifier( Token token ) {
+  // : INT | CHAR | FLOAT | STRING | BOOL
+  if ( token.type != INT && token.type != CHAR && token.type != FLOAT 
+       && token.type != STRING && token.type != BOOL  ) {
+    return false ;
+  } // if
+  else {
+    return true ;
+  } // else
+} // Parser::Type_specifier()
+
+void Parser::Function_definition_or_declarators( bool &correct ) {
+  // : function_definition_without_ID
+  // | rest_of_declarators
+  Token token, peek ;
+  peek = mScanner.PeekToken() ;
+  bool F_d_w_ID = false, R_o_d = false ;
+  if ( peek.type == LEFT_PAREN ) {
+    Function_definition_without_ID( F_d_w_ID ) ;
+    if ( !F_d_w_ID ) {
+      // error
+    } // if
+  } // if
+  else if ( peek.type == LB || peek.type == COMMA ) {
+    Rest_of_declarator( R_o_d ) ;
+    if ( !R_o_d ) {
+      // error
+    } // if
+  } // else if
+  else {
+    correct = false ;
+    return ;
+  } // else
+} // Parser::Function_definition_or_declarators()
+
+void Parser::Rest_of_declarator( bool &correct ) {
+  // : [ '[' Constant ']' ] 
+  // { ',' Identifier [ '[' Constant ']' ] } ';'
+  Token token, peek ;
+  peek = mScanner.PeekToken() ;
+  if ( peek.type == LB ) {
+    token = mScanner.GetToken() ;// get '['
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == CONSTANT ) {
+      token = mScanner.GetToken() ; // get Constant
+      peek = mScanner.PeekToken() ;
+      if ( peek.type == RB ) {
+        token = mScanner.GetToken() ;
+      } // if
+      else {
+        // error 1.Unrecognized 2. Unexpected
+      } // else
+    } // if
+    else {
+      // error 1.Unrecognized 2. Unexpected
+    } // else
+  } // if
+  else if ( peek.type == COMMA ) {
+    do {
+      token = mScanner.GetToken() ; // get Comma
+      peek = mScanner.PeekToken() ; 
+      if ( peek.type == IDENT ) {
+        token = mScanner.GetToken() ; // get IDENT
+        peek = mScanner.PeekToken() ; // may get ',' '[' or ';'
+        if ( peek.type == LB ) {
+          token = mScanner.GetToken() ; // get LB
+          peek = mScanner.PeekToken() ;
+          if ( peek.type == CONSTANT ) {
+          	token = mScanner.GetToken() ; // get Constant
+            peek = mScanner.PeekToken() ;
+            if ( peek.type == RB ) {
+              token = mScanner.GetToken() ;
+            } // if
+            else {
+              // error 1.Unrecognized 2.Unexpected
+            } // else
+          } // if
+          else { // Constant erro
+            // error 1. Unrecognized 2. Unexpected
+          } // else
+        } // if
+        else if ( peek.type == SEMICOLON ) {
+          correct = true ;
+          return ;
+        } // else if
+      } // if
+    } while( 1 ) ;
+  } // else if
+  else {
+    // error 1.Unrecognized 2. Unexpected
+  } // else
+} // Parser::Rest_of_declarator()
+
+void Parser::Function_definition_without_ID( bool &correct ) {
+  // : '(' [ VOID | formal_parameter_list ] ')' compound_statement
 } // Parser::Function_definition_without_ID()
+
+
+void Parser::Formal_parameter_list( bool &correct ) {
+  // : type_specifier [ '&' ] Identifier [ '[' Constant ']' ] 
+  // { ',' type_specifier [ '&' ] Identifier [ '[' Constant ']' ] }
+
+} // Parser::Formal_parameter_list()
 
 void Parser::Print_Definition_Variable( string ID ) {
   printf( "Definition of %s entered ...\n", ID.c_str() ) ;
@@ -640,25 +780,6 @@ void Parser::Print_Unexpected( string token ) {
   string output = "Unexpected token : '" + token + "'" ;
   printf( "%s\n", output.c_str() ) ; // c++ string to c string
 } // Parser::Print_Unexpected()
-
-void Parser::Print_Undefined( string token ) {
-  string output = "Undefined identifier : '" + token + "'" ;
-  printf( "%s\n", output.c_str() ) ; // c++ string to c string
-} // Parser::Print_Undefined()
-
-void Parser::Print_Float( float value ) {
-  printf( "%1.3f\n", value ) ;
-} // Parser::Print_Float()
-
-void Parser::Print_Int( float value ) {
-  int num = value ; // float to string
-  printf( "%d\n", num ) ;
-} // Parser::Print_Int()
-
-class Eval {
-  private :
-  public :
-};
 
 int main() {
   char ch = '\0' ; // read '\n'
