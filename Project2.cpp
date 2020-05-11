@@ -587,6 +587,12 @@ void Parser::Definition( bool &correct ) {
   Token token, peek ;
   bool F_d_w_ID = false, F_d_o_d = false ;
   peek = mScanner.PeekToken() ;
+  if ( peek.type != VOID && !Type_specifier( peek ) ) {
+    // 1. Unrecognized 2. Unexpected
+    correct = false ;
+    return ;  	
+  } // if
+
   if ( peek.type == VOID ) {
     token = mScanner.GetToken() ; // get the void token
     peek = mScanner.PeekToken() ; // peek IDENT
@@ -617,11 +623,6 @@ void Parser::Definition( bool &correct ) {
       // 2. Unexpected
     } // else
   } // else if
-  else {
-    // error
-    // 1. Unrecognized
-    // 2. Unexpected
-  } // else
 } // Parser::Definition()
 
 bool Parser::Type_specifier( Token token ) {
@@ -641,6 +642,11 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
   Token token, peek ;
   peek = mScanner.PeekToken() ;
   bool F_d_w_ID = false, R_o_d = false ;
+  if ( peek.type != LEFT_PAREN && peek.type != LB && peek.type != COMMA ) {
+    correct = false ;
+    return ;  	
+  } // if
+ 
   if ( peek.type == LEFT_PAREN ) {
     Function_definition_without_ID( F_d_w_ID ) ;
     if ( !F_d_w_ID ) {
@@ -653,10 +659,6 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
       // error
     } // if
   } // else if
-  else {
-    correct = false ;
-    return ;
-  } // else
 } // Parser::Function_definition_or_declarators()
 
 void Parser::Rest_of_declarator( bool &correct ) {
@@ -681,40 +683,10 @@ void Parser::Rest_of_declarator( bool &correct ) {
       // error 1.Unrecognized 2. Unexpected
     } // else
   } // if
-  else if ( peek.type == COMMA ) {
-    do {
-      token = mScanner.GetToken() ; // get Comma
-      peek = mScanner.PeekToken() ; 
-      if ( peek.type == IDENT ) {
-        token = mScanner.GetToken() ; // get IDENT
-        peek = mScanner.PeekToken() ; // may get ',' '[' or ';'
-        if ( peek.type == LB ) {
-          token = mScanner.GetToken() ; // get LB
-          peek = mScanner.PeekToken() ;
-          if ( peek.type == CONSTANT ) {
-          	token = mScanner.GetToken() ; // get Constant
-            peek = mScanner.PeekToken() ;
-            if ( peek.type == RB ) {
-              token = mScanner.GetToken() ;
-            } // if
-            else {
-              // error 1.Unrecognized 2.Unexpected
-            } // else
-          } // if
-          else { // Constant erro
-            // error 1. Unrecognized 2. Unexpected
-          } // else
-        } // if
-        else if ( peek.type == SEMICOLON ) {
-          correct = true ;
-          return ;
-        } // else if
-      } // if
-    } while( 1 ) ;
-  } // else if
-  else {
-    // error 1.Unrecognized 2. Unexpected
-  } // else
+
+  do {
+  	
+  } while( 1 ) ; 
 } // Parser::Rest_of_declarator()
 
 void Parser::Function_definition_without_ID( bool &correct ) {
