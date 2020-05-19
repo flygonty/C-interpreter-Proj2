@@ -131,6 +131,7 @@ Token Scanner::GetToken() {
     } // if
     else if ( peek_char == '\n' ) {
       cin.get();
+      mLine++ ;
       temp_Token = GetToken();
     } // else if
     else if ( peek_char == '(' ) {
@@ -512,6 +513,7 @@ Token Scanner::GetToken() {
     } // else
   } // else
 
+  temp_Token.line = mLine ;
   return temp_Token ;
 } // Scanner::GetToken()
 
@@ -568,7 +570,7 @@ public:
   void Print_Definition_Function( string ID ) ;
 
 
-  bool IsRecognized( string& token ) ;
+  bool IsUnrecognized( string& token ) ;
   void ErrorProcess() ;
   
   void Print_Unrecognized( string token ) ;
@@ -590,9 +592,20 @@ void Parser::Definition( bool &correct ) {
   if ( peek.type != VOID && !Type_specifier( peek ) ) {
     // 1. Unrecognized 2. Unexpected
     correct = false ;
+    if ( IsUnrecognized( peek.tokenValue ) ) {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // if
+    else {
+      token = mScanner.GetToken() ;
+      Print_Unexpected( token.tokenValue ) ;
+    } // else
+
+    ErrorProcess() ;
     return ;  	
   } // if
 
+  correct = true ;
   if ( peek.type == VOID ) {
     token = mScanner.GetToken() ; // get the void token
     peek = mScanner.PeekToken() ; // peek IDENT
@@ -600,12 +613,25 @@ void Parser::Definition( bool &correct ) {
       Function_definition_without_ID( F_d_w_ID ) ;
       if ( !F_d_w_ID ) {
         // error
+        ErrorProcess() ;
+        correct = false ;
       } // if
     } // if
     else {
+      correct = false ;
       // error
       // 1. Unrecognized
       // 2. Unexpected
+      if ( IsUnrecognized( peek.tokenValue ) ) {
+        token = mScanner.GetToken() ;
+        Print_Unrecognized( token.tokenValue ) ;
+        ErrorProcess() ;
+      } // if
+      else {
+      	token = mScanner.GetToken() ;
+        Print_Unexpected( token.tokenValue ) ;
+        ErrorProcess() ;
+      } // else
     } // else
   } // if
   else if ( Type_specifier( peek ) ) {
@@ -615,14 +641,29 @@ void Parser::Definition( bool &correct ) {
       Function_definition_or_declarators( F_d_o_d ) ;
       if ( !F_d_o_d ) {
         // error
+        correct = false ;
+        ErrorProcess() ;
       } // if
     } // if
     else {
       // error
+      correct = false ;
       // 1. Unrecognized
       // 2. Unexpected
+      if ( IsUnrecognized( peek.tokenValue ) ) {
+        token = mScanner.GetToken() ;
+        Print_Unrecognized( token.tokenValue ) ;
+        ErrorProcess() ;
+      } // if
+      else {
+      	token = mScanner.GetToken() ;
+        Print_Unexpected( token.tokenValue ) ;
+        ErrorProcess() ;
+      } // else
     } // else
   } // else if
+
+  return ;
 } // Parser::Definition()
 
 bool Parser::Type_specifier( Token token ) {
@@ -644,21 +685,36 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
   bool F_d_w_ID = false, R_o_d = false ;
   if ( peek.type != LEFT_PAREN && peek.type != LB && peek.type != COMMA ) {
     correct = false ;
-    return ;  	
+    if ( IsUnrecognized( peek.tokenValue ) ) {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // if
+    else {
+      token = mScanner.GetToken() ;
+      Print_Unexpected( token.tokenValue ) ;
+    } // else
+
+    ErrorProcess() ;
+    return ;
   } // if
- 
+
+  correct = true ;
   if ( peek.type == LEFT_PAREN ) {
     Function_definition_without_ID( F_d_w_ID ) ;
     if ( !F_d_w_ID ) {
       // error
+      ErrorProcess() ;
     } // if
   } // if
   else if ( peek.type == LB || peek.type == COMMA ) {
     Rest_of_declarator( R_o_d ) ;
     if ( !R_o_d ) {
       // error
+      ErrorProcess() ;
     } // if
   } // else if
+
+  return ;
 } // Parser::Function_definition_or_declarators()
 
 void Parser::Rest_of_declarator( bool &correct ) {
@@ -710,28 +766,22 @@ void Print_Definition_Function( string ID ) {
 
 
 
-bool Parser::IsRecognized( string& token ) {
+bool Parser::IsUnrecognized( string& token ) {
   // determine the token is recognized
-  if ( strcmp( token.c_str(), ":=" ) == 0 ) {
+
+  if ( token[0] == '_' ) {
     return true ;
   } // if
 
-  if ( token[0] == '_' ) {
-    return false ;
-  } // if
-
   for ( int i = 0 ; i < token.size() ; i++ ) {
-    if ( token[i] != '_' && token[i] != '*' && token[i] != '(' && token[i] != ')' && token[i] != '-' && 
-         token[i] != '+' && token[i] != ';' &&  ( token[i] < '0' || token[i] > '9'  ) &&
-         ( ( token[i] < 'a' || token[i] > 'z' ) && 
-           ( token[i] < 'A' || token[i] > 'Z' ) && token[i] != '=' ) && token[i] != '/' &&
-         token[i] != '<' && token[i] != '>' && token[i] != '.'  ) {
+    if ( token[i] == '`' && token[i] == '~' && token[i] == '@' && token[i] == '#' && token[i] == '$' && 
+         token[i] == '\\' ) {
 
-      return false ;
+      return true ;
     } // if
   } // for
 
-  return true ;
+  return false ;
 } // Parser::IsRecognized()
 
 void Parser::ErrorProcess() {
@@ -763,7 +813,7 @@ int main() {
   printf( "Program starts...\n" ) ;
   while ( 1 ) {
     token = scanner.GetToken();
-      cout << token.type << "       " << token.tokenValue << endl << endl ;
+      cout << token.type << "       " << token.tokenValue << "		" << token.line << endl << endl ;
   } // while()
 } // main()
 
