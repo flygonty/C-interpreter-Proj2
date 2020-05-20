@@ -539,9 +539,9 @@ public:
   void Basic_expression( bool &correct ) ;
   void Rest_of_Identifier_started_basic_exp( bool &correct ) ;
   void Rest_of_PPMM_Identifier_started_basic_exp( bool &correct ) ;
-  void Sign( bool &correct ) ;
+  bool Sign( Token token ) ;
   void Actual_parameter_list( bool &correct ) ;
-  void Assignment_operator( bool &correct ) ;
+  bool Assignment_operator( Token token ) ;
   void Romce_and_romloe( bool &correct ) ;
   void Rest_of_maybe_logical_OR_exp( bool &correct ) ;
   void Maybe_logical_AND_exp( bool &correct ) ;
@@ -707,7 +707,7 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
     } // if
   } // if
   else if ( peek.type == LB || peek.type == COMMA ) {
-    Rest_of_declarator( R_o_d ) ;
+    Rest_of_declarators( R_o_d ) ;
     if ( !R_o_d ) {
       // error
       ErrorProcess() ;
@@ -1025,8 +1025,64 @@ void Parser::Statement( bool &correct ) {
   // | IF '(' expression ')' statement [ ELSE statement ]
   // | WHILE '(' expression ')' statement
   // | DO statement WHILE '(' expression ')' ';'
-  
+  Token token, peek ;
+  peek = mScanner.PeekToken() ;
+  // if ( peek.type != SEMICOLON ||  )
 } // Parser::Statement()
+
+void Parser::Expression( bool &correct ) {
+} // Parser::Expression()
+
+void Parser::Basic_expression( bool &correct ) {
+} // Parser::Basic_expression()
+
+void Parser::Rest_of_Identifier_started_basic_exp( bool &correct ) {
+} // Parser::Rest_of_Identifier_started_basic_exp()
+
+void Parser::Rest_of_PPMM_Identifier_started_basic_exp( bool &correct ) {
+} // Parser::Rest_of_PPMM_Identifier_started_basic_exp()
+
+bool Parser::Sign( Token token ) {
+} // Parser::Sign()
+
+void Parser::Actual_parameter_list( bool &correct ) {
+} // Parser::Actual_parameter_list()
+
+bool Parser::Assignment_operator( Token token ) {
+} // Parser::Assignment_operator()
+
+void Parser::Romce_and_romloe( bool &correct ) {
+} // Parser::Romce_and_romloe()
+
+void Parser::Rest_of_maybe_logical_OR_exp( bool &correct ) {
+} // Parser::Rest_of_maybe_logical_OR_exp()
+
+void Parser::Maybe_logical_AND_exp( bool &correct ) {
+} // Parser::Maybe_logical_AND_exp()
+
+void Parser::Rest_of_maybe_logical_AND_exp( bool &correct ) {
+} // Parser::Rest_of_maybe_logical_AND_exp()
+
+void Parser::Maybe_bit_OR_exp( bool &correct ) {
+} // Parser::Maybe_bit_OR_exp()
+
+void Parser::Rest_of_maybe_bit_ex_OR_exp( bool &correct ) {
+} // Parser::Rest_of_maybe_bit_ex_OR_exp()
+
+void Parser::Maybe_bit_AND_exp( bool &correct ) {
+} // Parser::Maybe_bit_AND_exp()
+
+void Parser::Rest_of_maybe_bit_AND_exp( bool &correct ) {
+} // Parser::Rest_of_maybe_bit_AND_exp()
+
+void Parser::Maybe_equality_exp( bool &correct ) {
+} // Parser::Maybe_equality_exp()
+
+void Parser::Rest_of_maybe_equality_exp( bool &correct ) {
+} // Parser::Rest_of_maybe_equality_exp()
+
+void Parser::Maybe_relational_exp( bool &correct ) {
+} // Parser::Maybe_relational_exp()
 
 void Parser::Print_Definition_Variable( string ID ) {
   printf( "Definition of %s entered ...\n", ID.c_str() ) ;
@@ -1035,7 +1091,6 @@ void Parser::Print_Definition_Variable( string ID ) {
 void Print_Definition_Function( string ID ) {
   printf( "Definition of %s() entered ...\n", ID.c_str() ) ;
 } // Parser::Print_Definition_Function()
-
 
 
 bool Parser::IsUnrecognized( string& token ) {
