@@ -529,7 +529,7 @@ public:
   void Definition( bool &correct ) ;
   bool Type_specifier( Token token ) ;
   void Function_definition_or_declarators( bool &correct ) ;
-  void Rest_of_declarator( bool &correct ) ;
+  void Rest_of_declarators( bool &correct ) ;
   void Function_definition_without_ID( bool &correct ) ;
   void Formal_parameter_list( bool &correct ) ;
   void Compound_statement( bool &correct ) ;
@@ -717,7 +717,7 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
   return ;
 } // Parser::Function_definition_or_declarators()
 
-void Parser::Rest_of_declarator( bool &correct ) {
+void Parser::Rest_of_declarators( bool &correct ) {
   // : [ '[' Constant ']' ] 
   // { ',' Identifier [ '[' Constant ']' ] } ';'
   Token token, peek ;
@@ -795,7 +795,7 @@ void Parser::Rest_of_declarator( bool &correct ) {
             token = mScanner.GetToken() ; // get Constant
             peek = mScanner.PeekToken() ; // peek ']'
             if ( peek.type == RB ) {
-
+              token = mScanner.GetToken() ; // get ']' [Constant] OK
             } // if
             else {
               correct = false ;
@@ -813,10 +813,22 @@ void Parser::Rest_of_declarator( bool &correct ) {
             } // else
           } // if
           else {
+            correct = false ;
+            if ( IsUnrecognized( peek.tokenValue ) ) {
+              token = mScanner.GetToken() ;
+              Print_Unrecognized( token ) ;
+			} // if
+            else {
+              token = mScanner.GetToken() ;
+              Print_Unexpected( token ) ;
+            } // else
 
+            ErrorProcess() ;
+            return ;
           } // else
         } // if
         else if ( peek.type == SEMICOLON ) {
+          token = mScanner.GetToken() ; // get ';'
           return ;
         } // else if
       } // if
@@ -840,14 +852,181 @@ void Parser::Rest_of_declarator( bool &correct ) {
 
 void Parser::Function_definition_without_ID( bool &correct ) {
   // : '(' [ VOID | formal_parameter_list ] ')' compound_statement
-} // Parser::Function_definition_without_ID()
+  Token token, peek ;
+  bool F_p_l = false, C_s = false ;
+  peek = mScanner.PeekToken() ; // peek '('
+  if ( peek.type == LEFT_PAREN ) {
+    token = mScanner.GetToken() ;
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == VOID ) {
+      token = mScanner.GetToken() ;
+	} // if
+    else {
+      Formal_parameter_list( F_p_l ) ;
+    } // else
 
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == RIGHT_PAREN ) {
+      token = mScanner.GetToken() ;
+    } // if
+
+    // compound_statment
+    Compound_statement( C_s ) ;
+    if ( C_s ) {
+      correct = true ;
+      return ;
+    } // if
+    else {
+      correct = false ;
+      return ;
+    } // else
+  } // if
+  else {
+    correct = false ;
+    if ( IsUnrecognized( peek.tokenValue ) ) {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // if
+    else {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // else
+
+    ErrorProcess() ;
+    return ;
+  } // else
+} // Parser::Function_definition_without_ID()
 
 void Parser::Formal_parameter_list( bool &correct ) {
   // : type_specifier [ '&' ] Identifier [ '[' Constant ']' ] 
   // { ',' type_specifier [ '&' ] Identifier [ '[' Constant ']' ] }
+  Token token, peek ;
+  peek = mScanner.PeekToken() ; // peek token
+  if ( Type_specifier( peek ) ) {
 
+  } // if
+  else {
+    correct = false ;
+    if ( IsUnrecognized( peek.tokenValue ) ) {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // if
+    else {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // else
+
+    ErrorProcess() ;
+    return ;
+  } // else
 } // Parser::Formal_parameter_list()
+
+void Parser::Compound_statement( bool &correct ) {
+  // : '{' { declaration | statement } '}'
+  Token token, peek ;
+  bool declaration1Correct = false, statement1Correct = false ;
+  peek = mScanner.PeekToken() ;
+  if ( peek.type == LCB ) {
+    token = mScanner.GetToken() ;
+  } // if
+  else {
+    correct = false ;
+    if ( IsUnrecognized( peek.tokenValue ) ) {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // if
+    else {
+      token = mScanner.GetToken() ;
+      Print_Unrecognized( token ) ;
+    } // else
+
+    ErrorProcess() ;
+    return ;
+  } // else
+
+  correct = true ;
+  do {
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == RCB ) {
+      return ; // meet ' }' then break
+    } // if
+
+    if ( Type_specifier( peek ) ) {
+      Declaration( declaration1Correct ) ;
+      if ( !declaration1Correct ) {
+        correct = false ;
+        return ;
+      } // if
+    } // if
+    else {
+      Statement( statement1Correct ) ;
+      if ( !statement1Correct ) {
+        correct = false ;
+        return ;
+      } // if
+    } // else
+  } while ( 1 ) ;
+} // Parser::Compound_statement()
+
+void Parser::Declaration( bool &correct ) {
+  // : type_specifier Identifier rest_of_declarators
+  Token token, peek ;
+  bool R_o_d = false ;
+  peek = mScanner.PeekToken() ;
+  if ( Type_specifier( peek ) ) {
+    token = mScanner.GetToken() ; // get type_specfier
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == IDENT ) {
+      token = mScanner.GetToken() ;
+      Rest_of_declarators( R_o_d ) ;
+      if ( R_o_d ) {
+        correct = true ;
+        return ;
+      } // if
+      else {
+        correct = false ;
+        return ;
+      } // else
+    } // if
+    else {
+      correct = false ;
+      token = mScanner.GetToken() ;
+      if ( IsUnrecognized( token.tokenValue ) ) {
+        Print_Unrecognized( token ) ;
+      } // if
+      else {
+        Print_Unexpected( token ) ;
+      } // else
+
+      ErrorProcess() ;
+      return ;
+    } // else
+  } // if
+  else {
+    correct = false ;
+    token = mScanner.GetToken() ;
+    if ( IsUnrecognized( token.tokenValue ) ) {
+      Print_Unrecognized( token ) ;
+    } // if
+    else {
+      Print_Unexpected( token ) ;
+    } // else
+
+    ErrorProcess() ;
+    return ;
+  } // else
+} // Parser::Declaration()
+
+void Parser::Statement( bool &correct ) {
+  // : ';'     // the null statement
+  // | expression ';'  /* expression here should not be empty */
+  // | RETURN [ expression ] ';'
+  // | compound_statement
+  // | IF '(' expression ')' statement [ ELSE statement ]
+  // | WHILE '(' expression ')' statement
+  // | DO statement WHILE '(' expression ')' ';'
+  
+} // Parser::Statement()
 
 void Parser::Print_Definition_Variable( string ID ) {
   printf( "Definition of %s entered ...\n", ID.c_str() ) ;
