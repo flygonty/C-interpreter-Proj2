@@ -569,6 +569,7 @@ public:
   void Print_Definition_Variable( string ID ) ;
   void Print_Definition_Function( string ID ) ;
 
+  void ErrorMessage() ;
 
   bool IsUnrecognized( string& token ) ;
   void ErrorProcess() ;
@@ -1033,6 +1034,27 @@ void Parser::Statement( bool &correct ) {
     correct = true ;
     return ;
   } // if
+  else if ( peek.type == IDENT || peek.type == PP || peek.type == MM || 
+            peek.type == ADD || peek.type == MINUS || peek.type == NOT ||
+            peek.type == CONSTANT ) {
+    Expression( expression1Correct ) ;
+    if ( expression1Correct ) {
+      peek = mScanner.PeekToken() ; // peek ';'
+      if ( peek.type == SEMICOLON ) {
+        correct = true ;
+        return ;
+      } // if
+      else {
+        correct = false ;
+        ErrorMessage() ;
+        return ;
+      } // else
+    } // if
+    else {
+      correct = false ;
+      return ;
+    } // else
+  } // else if
   else if ( peek.type == RETURN ) {
     token = mScanner.GetToken() ;
     peek = mScanner.PeekToken() ;
@@ -1046,19 +1068,13 @@ void Parser::Statement( bool &correct ) {
       if ( expression1Correct ) {
         peek = mScanner.GetToken() ;
         if ( peek.type == SEMICOLON ) {
+          correct = true ;
           token = mScanner.GetToken() ;
           return ;
         } // if
         else {
-          token = mScanner.GetToken() ;
-          if ( IsUnrecognized( token.tokenValue ) ) {
-            Print_Unrecognized( token ) ;
-          } // if
-          else {
-            Print_Unexpected( token ) ;
-          } // else
-
-          ErrorProcess() ;
+          correct = false ;
+          ErrorMessage() ;
           return ;
         } // else
       } // if
@@ -1082,7 +1098,7 @@ void Parser::Statement( bool &correct ) {
           if ( statement1Correct ) {
             correct = true ;
             peek = mScanner.PeekToken() ;
-            if ( peek.type == ELSE ) {
+            if ( peek.type == ELSE ) { // optional
               token = mScanner.GetToken() ;
               Statement( statement1Correct ) ;
               if ( !statement1Correct ) {
@@ -1102,15 +1118,7 @@ void Parser::Statement( bool &correct ) {
         } // if
         else {
           correct = false ;
-          token = mScanner.GetToken() ;
-          if ( IsUnrecognized( token.tokenValue ) ) {
-            Print_Unrecognized( token ) ;
-          } // if
-          else {
-            Print_Unexpected( token ) ;
-          } // else
-
-          ErrorProcess() ;
+          ErrorMessage() ;
           return ;
         } // else
       } // if
@@ -1121,15 +1129,7 @@ void Parser::Statement( bool &correct ) {
     } // if
     else {
       correct = false ;
-      token = mScanner.GetToken() ;
-      if ( IsUnrecognized( token.tokenValue ) ) {
-        Print_Unrecognized( token ) ;
-      } // if
-      else {
-        Print_Unexpected( token ) ;
-      } // else
-
-      ErrorProcess() ;
+      ErrorMessage() ;
       return ;
     } // else 
   } // else if
@@ -1155,15 +1155,7 @@ void Parser::Statement( bool &correct ) {
         } // if
         else {
           correct = false ;
-          token = mScanner.GetToken() ; // get wrong token
-          if ( IsUnrecognized( token.tokenValue ) ) {
-            Print_Unrecognized( token ) ;
-          } // if
-          else {
-            Print_Unexpected( token ) ;
-          } // else
-
-          ErrorProcess() ;
+          ErrorMessage() ;
           return ;
         } // else
       } // if
@@ -1174,30 +1166,108 @@ void Parser::Statement( bool &correct ) {
     } // if
     else {
       correct = false ;
-      token = mScanner.GetToken() ; // get wrong token
-      if ( IsUnrecognized( token.tokenValue ) ) {
-        Print_Unrecognized( token ) ;
-      } // if
-      else {
-        Print_Unexpected( token ) ;
-      } // else
-
-      ErrorProcess() ;
+      ErrorMessage() ;
       return ;
     } // else
   } // else if
   else if ( peek.type == DO ) {
-  } // else if
-  else {
-    Compound_statement( C_s1Correct ) ;
-    if ( !C_s1Correct ) {
+    // DO statement WHILE '(' expression ')' ';'
+    token = mScanner.GetToken() ; // get token DO
+    Statement( statement1Correct ) ;
+    if ( statement1Correct ) {
+      peek = mScanner.PeekToken() ; // peek WHILE
+      if ( peek.type == WHILE ) {
+        token = mScanner.GetToken() ; // get WHILE
+        peek = mScanner.PeekToken() ; // peek '('
+        if ( peek.type == LEFT_PAREN ) {
+          token = mScanner.GetToken() ; // get '('
+          Expression( expression1Correct ) ;
+          if ( expression1Correct ) {
+            peek = mScanner.PeekToken() ; // peek ')'
+            if ( peek.type == RIGHT_PAREN ) {
+              token = mScanner.GetToken() ; // get ')'
+              peek = mScanner.PeekToken() ; // peek ';'
+              if ( peek.type == SEMICOLON ) {
+                token = mScanner.GetToken() ; // get ';'
+                correct = true ;
+                return ;
+              } // if
+              else {
+                correct = false ;
+                ErrorMessage() ;
+                return ;
+              } // else
+            } // if
+            else {
+              correct = false ;
+              ErrorMessage() ;
+              return ;
+            } // else
+          } // if
+          else {
+            correct = false ;
+            return ;
+          } // else
+        } // if
+        else {
+          correct = false ;
+          ErrorMessage() ;
+          return ;
+        } // else
+      } // if
+      else {
+        // error
+        correct = false ;
+        ErrorMessage() ;
+        return ;
+      } // else 
+    } // if
+    else {
       correct = false ;
       return ;
+    } // else
+  } // else if
+  else {
+    // compound_statement
+    Compound_statement( C_s1Correct ) ;
+    if ( C_s1Correct ) {
+      correct = true ;
+      return ;
     } // if
+    else {
+      correct = false ;
+      return ;
+    } // else
   } // else
 } // Parser::Statement()
 
 void Parser::Expression( bool &correct ) {
+  // : basic_expression { ',' basic_expression }
+  Token token, peek ;
+  bool basic_exp1Correct = false ;
+  Basic_expression( basic_exp1Correct ) ;
+  if ( basic_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ;
+      if ( peek.type == COMMA ) {
+        token = mScanner.GetToken() ; // get ','
+        Basic_expression( basic_exp1Correct ) ;
+        if ( !basic_exp1Correct ) {
+          correct = true ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = false ;
+        ErrorMessage() ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
 } // Parser::Expression()
 
 void Parser::Basic_expression( bool &correct ) {
@@ -1265,6 +1335,19 @@ void Print_Definition_Function( string ID ) {
   printf( "Definition of %s() entered ...\n", ID.c_str() ) ;
 } // Parser::Print_Definition_Function()
 
+
+void Parser::ErrorMessage() {
+  Token token ;
+  token = mScanner.GetToken() ;
+  if ( IsUnrecognized( token.tokenValue ) ) {
+    Print_Unrecognized( token ) ;
+  } // if
+  else {
+    Print_Unexpected( token ) ;
+  } // else
+
+  ErrorProcess() ;
+} // Parser::ErrorMessage()
 
 bool Parser::IsUnrecognized( string& token ) {
   // determine the token is recognized
