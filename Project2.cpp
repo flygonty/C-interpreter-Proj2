@@ -569,6 +569,8 @@ public:
   void Print_Definition_Variable( string ID ) ;
   void Print_Definition_Function( string ID ) ;
 
+  bool Done( Token peek ) ;
+
   void ErrorMessage() ;
 
   bool IsUnrecognized( string& token ) ;
@@ -582,6 +584,41 @@ public:
 
 bool Parser::User_input() {
   // : ( definition | statement ) { definition | statement }
+  
+  bool definition1Correct = false, statement1Correct = false ;
+  Token peek ;
+  peek = mScanner.PeekToken() ;
+  if ( Done( peek ) ) {
+    return false ;
+  } // if
+
+  if ( peek.type == VOID || Type_specifier( peek ) ) {
+    Definition( definition1Correct ) ;
+    if ( definition1Correct ) {
+      printf("Definition of entered...\n") ;
+    } // if
+  } // if
+  else {
+    Statement( statement1Correct ) ;
+    if ( statement1Correct ) {
+      printf("Statement executed...\n") ;
+    } // if
+  } // else
+
+  do {
+    if ( peek.type == VOID || Type_specifier( peek ) ) {
+      Definition( definition1Correct ) ;
+      if ( definition1Correct ) {
+        printf("Definition of entered...\n") ;
+      } // if
+    } // if
+    else {
+      Statement( statement1Correct ) ;
+      if ( statement1Correct ) {
+        printf("Statement executed...\n") ;
+      } // if
+    } // else
+  } while( 1 ) ;
 } // Parser::User_input()
 
 void Parser::Definition( bool &correct ) {
@@ -1331,10 +1368,40 @@ void Parser::Print_Definition_Variable( string ID ) {
   printf( "Definition of %s entered ...\n", ID.c_str() ) ;
 } // Parser::Print_Definition_Variable()
 
-void Print_Definition_Function( string ID ) {
+void Parser::Print_Definition_Function( string ID ) {
   printf( "Definition of %s() entered ...\n", ID.c_str() ) ;
 } // Parser::Print_Definition_Function()
 
+bool Parser::Done( Token peek ) {
+  Token token ;
+  if ( strcmp( peek.tokenValue.c_str(), "Done" ) == 0 ) {
+    token = mScanner.GetToken() ;
+    peek = mScanner.PeekToken() ;
+    if ( peek.type == LEFT_PAREN ) {
+      token = mScanner.GetToken() ;
+      peek = mScanner.PeekToken() ;
+      if ( peek.type == RIGHT_PAREN ) {
+        token = mScanner.GetToken() ;
+        peek = mScanner.PeekToken() ;
+        if ( peek.type == SEMICOLON ) {
+          token = mScanner.GetToken() ;
+          return true ;
+        } // if
+        else {
+          ErrorMessage() ;
+        } // else
+      } // if
+      else {
+        ErrorMessage() ;
+      } // else
+    } // if
+    else {
+      ErrorMessage() ;
+    } // else
+  } // if
+
+  return false ;
+} // Parser::Done()
 
 void Parser::ErrorMessage() {
   Token token ;
@@ -1393,10 +1460,18 @@ int main() {
   Parser parser ;
   Scanner scanner;
   // scanf_s( "%d%c", &uTestNum, &ch ) ;
-  printf( "Program starts...\n" ) ;
+  printf( "Our-C running ...\n" ) ;
+  while ( jumpOut != true ) {
+    if ( !parser.User_input() ) {
+      jumpOut = true ;
+    } // if
+  } // while()
+
+  /*
   while ( 1 ) {
     token = scanner.GetToken();
       cout << token.type << "       " << token.tokenValue << "		" << token.line << endl << endl ;
   } // while()
+  */
 } // main()
 
