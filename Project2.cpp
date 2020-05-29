@@ -639,6 +639,7 @@ void Parser::Definition( bool &correct ) {
     token = mScanner.GetToken() ; // get the void token
     peek = mScanner.PeekToken() ; // peek IDENT
     if ( peek.type == IDENT ) {
+      token = mScanner.GetToken() ; // get ident
       Function_definition_without_ID( f_d_w_ID ) ;
       if ( !f_d_w_ID ) {
         // error
@@ -658,6 +659,7 @@ void Parser::Definition( bool &correct ) {
     token = mScanner.GetToken() ; // get the Type token
     peek = mScanner.PeekToken() ; // peek IDENT
     if ( peek.type == IDENT ) {
+      token = mScanner.GetToken() ; // get ident
       Function_definition_or_declarators( f_d_o_d ) ;
       if ( !f_d_o_d ) {
         // error
@@ -694,7 +696,7 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
   Token token, peek ;
   peek = mScanner.PeekToken() ;
   bool f_d_w_ID = false, r_o_d = false ;
-  if ( peek.type != LEFT_PAREN && peek.type != LB && peek.type != COMMA ) {
+  if ( peek.type != LEFT_PAREN && peek.type != LB && peek.type != COMMA && peek.type != SEMICOLON ) {
     correct = false ;
     ErrorMessage() ;
     return ;
@@ -708,7 +710,7 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
       ErrorProcess() ;
     } // if
   } // if
-  else if ( peek.type == LB || peek.type == COMMA ) {
+  else if ( peek.type == LB || peek.type == COMMA || peek.type == SEMICOLON ) {
     Rest_of_declarators( r_o_d ) ;
     if ( !r_o_d ) {
       // error
@@ -1687,18 +1689,199 @@ void Parser::Rest_of_maybe_logical_AND_exp( bool &correct ) {
 } // Parser::Rest_of_maybe_logical_AND_exp()
 
 void Parser::Maybe_bit_OR_exp( bool &correct ) {
+  Token token, peek ;
+  bool maybe_bit_ex_OR_exp1Correct = false ;
+
+  Maybe_bit_ex_OR_exp( maybe_bit_ex_OR_exp1Correct ) ;
+  if ( maybe_bit_ex_OR_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek OR
+      if ( peek.type == OR ) {
+        token = mScanner.GetToken() ; // get 'OR'
+        Maybe_bit_ex_OR_exp( maybe_bit_ex_OR_exp1Correct ) ;
+        if ( !maybe_bit_ex_OR_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
 } // Parser::Maybe_bit_OR_exp()
 
 void Parser::Rest_of_maybe_bit_OR_exp( bool &correct ) {
+  Token token, peek ;
+  bool r_o_maybe_bit_ex_OR_exp1Correct = false, maybe_bit_ex_OR_exp1Correct = false ;
+
+  Rest_of_maybe_bit_ex_OR_exp( r_o_maybe_bit_ex_OR_exp1Correct ) ;
+  if ( r_o_maybe_bit_ex_OR_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek OR
+      if ( peek.type == OR ) {
+        token = mScanner.GetToken() ; // get 'OR'
+        Maybe_bit_ex_OR_exp( maybe_bit_ex_OR_exp1Correct ) ;
+        if ( !maybe_bit_ex_OR_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
+} // Parser::Rest_of_maybe_bit_ex_OR_exp()
+
+void Parser::Maybe_bit_ex_OR_exp( bool &correct ) {
+  Token token, peek ;
+  bool maybe_bit_AND_exp1Correct = false ;
+
+  Maybe_bit_AND_exp( maybe_bit_AND_exp1Correct ) ;
+  if ( maybe_bit_AND_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek '^'
+      if ( peek.type == XOR ) {
+        token = mScanner.GetToken() ; // get '^'
+        Maybe_bit_AND_exp( maybe_bit_AND_exp1Correct ) ;
+        if ( !maybe_bit_AND_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
+} // Parser::Maybe_bit_ex_OR_exp()
+
+void Parser::Rest_of_maybe_bit_ex_OR_exp( bool &correct ) {
+  Token token, peek ;
+  bool r_o_maybe_bit_AND_exp1Correct = false, maybe_bit_AND_exp1Correct = false ;
+
+  Rest_of_maybe_bit_AND_exp( r_o_maybe_bit_AND_exp1Correct ) ;
+  if ( r_o_maybe_bit_AND_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek XOR '^'
+      if ( peek.type == XOR ) {
+        token = mScanner.GetToken() ; // get 'XOR' ^
+        Maybe_bit_AND_exp( maybe_bit_AND_exp1Correct ) ;
+        if ( !maybe_bit_AND_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
 } // Parser::Rest_of_maybe_bit_ex_OR_exp()
 
 void Parser::Maybe_bit_AND_exp( bool &correct ) {
+  Token token, peek ;
+  bool maybe_equality_exp1Correct = false ;
+
+  Maybe_equality_exp( maybe_equality_exp1Correct ) ;
+  if ( maybe_equality_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek '&'
+      if ( peek.type == AND ) {
+        token = mScanner.GetToken() ; // get '&'
+        Maybe_equality_exp( maybe_equality_exp1Correct ) ;
+        if ( !maybe_equality_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
 } // Parser::Maybe_bit_AND_exp()
 
 void Parser::Rest_of_maybe_bit_AND_exp( bool &correct ) {
+  Token token, peek ;
+  bool r_o_maybe_equalityexp1Correct = false, maybe_equality_exp1Correct = false ;
+
+  Rest_of_maybe_equality_exp( r_o_maybe_equalityexp1Correct ) ;
+  if ( r_o_maybe_equalityexp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek AND
+      if ( peek.type == AND ) {
+        token = mScanner.GetToken() ; // get '&'
+        Maybe_equality_exp( maybe_equality_exp1Correct ) ;
+        if ( !maybe_equality_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
 } // Parser::Rest_of_maybe_bit_AND_exp()
 
 void Parser::Maybe_equality_exp( bool &correct ) {
+  Token token, peek ;
+  bool maybe_relational_exp1Correct = false ;
+
+  Maybe_relational_exp( maybe_relational_exp1Correct ) ;
+  if ( maybe_relational_exp1Correct ) {
+    do {
+      peek = mScanner.PeekToken() ; // peek 'EQ' or NEQ
+      if ( peek.type == EQ || peek.type == NEQ ) {
+        token = mScanner.GetToken() ; // get EQ or NEQ
+        Maybe_relational_exp( maybe_relational_exp1Correct ) ;
+        if ( !maybe_relational_exp1Correct ) {
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      else {
+        correct = true ;
+        return ;
+      } // else
+    } while ( 1 ) ;
+  } // if
+  else {
+    correct = false ;
+    return ;
+  } // else
 } // Parser::Maybe_equality_exp()
 
 void Parser::Rest_of_maybe_equality_exp( bool &correct ) {
