@@ -513,6 +513,7 @@ Token Scanner::GetToken() {
     } // else
   } // else
 
+  // cout << temp_Token.tokenValue << "  " << temp_Token.type << endl ;
   temp_Token.line = mLine ;
   return temp_Token ;
 } // Scanner::GetToken()
@@ -591,7 +592,6 @@ bool Parser::User_input() {
   Token peek ;
   peek = mScanner.PeekToken() ;
 
-  printf( "> " ) ;
   if ( Done( peek ) ) {
     return false ;
   } // if
@@ -811,16 +811,13 @@ void Parser::Function_definition_without_ID( bool &correct ) {
   if ( peek.type == LEFT_PAREN ) {
     token = mScanner.GetToken() ;
     peek = mScanner.PeekToken() ;
-    if ( peek.type == VOID ) {
-      token = mScanner.GetToken() ;
-    } // if
-    else {
+    if ( peek.type != RIGHT_PAREN ) { // VOID
       Formal_parameter_list( f_p_l ) ;
       if ( !f_p_l ) {
         correct = false ;
         return ;
       } // if
-    } // else
+    } // if
 
     peek = mScanner.PeekToken() ;
     if ( peek.type == RIGHT_PAREN ) {
@@ -960,6 +957,7 @@ void Parser::Compound_statement( bool &correct ) {
   Token token, peek ;
   bool declaration1Correct = false, statement1Correct = false ;
   peek = mScanner.PeekToken() ; // peek '{'
+
   if ( peek.type == LCB ) {
     token = mScanner.GetToken() ;
   } // if
@@ -969,10 +967,11 @@ void Parser::Compound_statement( bool &correct ) {
     return ;
   } // else
 
-  correct = true ;
   do {
     peek = mScanner.PeekToken() ;
+
     if ( peek.type == RCB ) {
+      correct = true ;
       token = mScanner.GetToken() ;
       return ; // meet ' }' then break
     } // if
@@ -1038,7 +1037,7 @@ void Parser::Statement( bool &correct ) {
   Token token, peek ;
   bool c_s1Correct = false, expression1Correct, statement1Correct ;
   peek = mScanner.PeekToken() ;
-  cout << peek.tokenValue << endl ;
+
   if ( peek.type == SEMICOLON ) {
     token = mScanner.GetToken() ;
     correct = true ;
@@ -1066,7 +1065,7 @@ void Parser::Statement( bool &correct ) {
     } // else
   } // else if
   else if ( peek.type == RETURN ) {
-    token = mScanner.GetToken() ;
+    token = mScanner.GetToken() ; // get 'return' 
     peek = mScanner.PeekToken() ;
     if ( peek.type == SEMICOLON ) {
       token = mScanner.GetToken() ;
@@ -1076,7 +1075,7 @@ void Parser::Statement( bool &correct ) {
     else {
       Expression( expression1Correct ) ;
       if ( expression1Correct ) {
-        peek = mScanner.GetToken() ;
+        peek = mScanner.PeekToken() ;
         if ( peek.type == SEMICOLON ) {
           correct = true ;
           token = mScanner.GetToken() ;
@@ -1397,15 +1396,14 @@ void Parser::Rest_of_Identifier_started_basic_exp( bool &correct ) {
     Expression( expression1Correct ) ;
     if ( expression1Correct ) {
       peek = mScanner.PeekToken() ;
-      if ( peek.type == RB ) {
-        token = mScanner.GetToken() ;
-        correct = true ;
-        return ;
-      } // if
-      else {
+      if ( peek.type != RB ) {
         correct = false ;
         ErrorMessage() ;
         return ;
+      } // if
+      else {
+        token = mScanner.GetToken() ;
+        peek = mScanner.PeekToken() ;
       } // else
     } // if
     else {
@@ -2257,16 +2255,8 @@ void Parser::Signed_unary_exp( bool &correct ) {
         peek = mScanner.PeekToken() ; // peek ']'
         if ( peek.type == RB ) {
           token = mScanner.GetToken() ; // get ']'
-          peek = mScanner.PeekToken() ; // peek PP or MM
-          if ( peek.type == PP || peek.type == MM ) {
-            token = mScanner.GetToken() ; // get PP or MM
-            correct = true ;
-            return ;
-          } // if
-          else {
-            correct = true ;
-            return ;
-          } // else
+          correct = true ;
+          return ;
         } // if
         else {
           correct = false ;
@@ -2319,10 +2309,75 @@ void Parser::Signed_unary_exp( bool &correct ) {
 
 void Parser::Unsigned_unary_exp( bool &correct ) {
   Token token, peek ;
-  bool actual_parameter_list = false, expression1Correct = false ;
+  bool actual_parameter_list1Correct = false, expression1Correct = false ;
 
   peek = mScanner.PeekToken() ; // peek Ident, Constant, '('
   if ( peek.type == IDENT ) {
+    token = mScanner.GetToken() ; // get Ident
+    peek = mScanner.PeekToken() ; // peek '(', '['
+    if ( peek.type == LEFT_PAREN ) {
+      token = mScanner.GetToken() ; // get '('
+      Actual_parameter_list( actual_parameter_list1Correct ) ;
+      if ( actual_parameter_list1Correct ) {
+        peek = mScanner.PeekToken() ; // peek ')'
+        if ( peek.type == RIGHT_PAREN ) {
+          token = mScanner.GetToken() ; // get ')'
+          correct = true ;
+          return ;
+        } // if
+        else {
+          correct = false ;
+          ErrorMessage() ;
+          return ;
+        } // else
+      } // if
+      else {
+        peek = mScanner.PeekToken() ;
+        if ( peek.type == RIGHT_PAREN ) {
+          token = mScanner.GetToken() ;
+          correct = true ;
+          return ;
+        } // if
+        else {
+          correct = false ;
+          ErrorMessage() ;
+          return ;
+        } // else
+      } // else
+    } // if
+    else if ( peek.type == LB ) {
+      token = mScanner.GetToken() ; // get '['
+      Expression( expression1Correct ) ;
+      if ( expression1Correct ) {
+        peek = mScanner.PeekToken() ; // peek ']'
+        if ( peek.type == RB ) {
+          token = mScanner.GetToken() ; // get ']'
+          peek = mScanner.PeekToken() ; // peek PP or MM
+          if ( peek.type == PP || peek.type == MM ) {
+            token = mScanner.GetToken() ; // get PP or MM
+            correct = true ;
+            return ;
+          } // if
+          else {
+            correct = true ;
+            return ;
+          } // else
+        } // if
+        else {
+          correct = false ;
+          ErrorMessage() ;
+          return ;
+        } // else
+      } // if
+      else {
+        correct = false ;
+        return ;
+      } // else
+    } // else if
+    else {
+      correct = true ;
+      return ;
+    } // else
   } // if
   else if ( peek.type == CONSTANT ) {
     token = mScanner.GetToken() ; // get Constant
@@ -2396,6 +2451,12 @@ bool Parser::Done( Token peek ) {
   return false ;
 } // Parser::Done()
 
+bool Parser::Cin( Token peek ) {
+} // Parser::Cin()
+
+bool Parser::Cout( Token peek ) {
+} // Parser::Cout()
+
 void Parser::ErrorMessage() {
   Token token ;
   token = mScanner.GetToken() ;
@@ -2455,6 +2516,7 @@ int main() {
   // scanf_s( "%d%c", &uTestNum, &ch ) ;
   printf( "Our-C running ...\n" ) ;
   while ( jumpOut != true ) {
+    printf( "> " ) ; 
     if ( !parser.User_input() ) {
         jumpOut = true ;
     } // if
