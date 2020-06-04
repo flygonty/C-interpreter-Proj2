@@ -520,7 +520,7 @@ Token Scanner::GetToken() {
 
 class Parser {
 private:
-  Scanner mScanner;
+  Scanner mScanner; 
   vector <Function> mFunctionList ;
   vector <string> mVariableList ;
   vector <Token> mTokenList ; // store token and give it to eval
@@ -571,9 +571,8 @@ public:
   void Print_Definition_Function( string ID ) ;
 
   bool Done( Token peek ) ;
-  bool Cin( Token peek ) ;
-  bool Cout( Token peek ) ;
 
+  void CleanTokenBuffer() ;
   void ErrorMessage() ;
 
   bool IsUnrecognized( string& token ) ;
@@ -855,8 +854,17 @@ void Parser::Formal_parameter_list( bool &correct ) {
   if ( Type_specifier( peek ) ) {
     token = mScanner.GetToken() ;
     peek = mScanner.PeekToken() ;
-    if ( peek.type == AND ) {
+    if ( peek.type == AND_OP ) {
       token = mScanner.GetToken() ; // get '&'
+      peek = mScanner.PeekToken() ; // peek Ident
+      if ( peek.type == IDENT ) {
+        token = mScanner.GetToken() ;
+      } // if
+      else {
+        correct = false ;
+        ErrorMessage() ;
+        return ;
+      } // else
     } // if
     else if ( peek.type == IDENT ) {
       token = mScanner.GetToken() ; // get Identifier
@@ -902,8 +910,17 @@ void Parser::Formal_parameter_list( bool &correct ) {
       if ( Type_specifier( peek ) ) {
         token = mScanner.GetToken() ;
         peek = mScanner.PeekToken() ;
-        if ( peek.type == AND ) {
+        if ( peek.type == AND_OP ) {
           token = mScanner.GetToken() ; // get '&'
+          peek = mScanner.PeekToken() ; // peek Ident
+          if ( peek.type == IDENT ) {
+            token = mScanner.GetToken() ;
+          } // if
+          else {
+            correct = false ;
+            ErrorMessage() ;
+            return ;
+          } // else
         } // if
         else  if ( peek.type == IDENT ) {
           token = mScanner.GetToken() ; // get Identifier
@@ -1712,8 +1729,8 @@ void Parser::Maybe_bit_OR_exp( bool &correct ) {
   Maybe_bit_ex_OR_exp( maybe_bit_ex_OR_exp1Correct ) ;
   if ( maybe_bit_ex_OR_exp1Correct ) {
     do {
-      peek = mScanner.PeekToken() ; // peek OR
-      if ( peek.type == OR ) {
+      peek = mScanner.PeekToken() ; // peek OR_OP '|'
+      if ( peek.type == OR_OP ) {
         token = mScanner.GetToken() ; // get 'OR'
         Maybe_bit_ex_OR_exp( maybe_bit_ex_OR_exp1Correct ) ;
         if ( !maybe_bit_ex_OR_exp1Correct ) {
@@ -1741,7 +1758,7 @@ void Parser::Rest_of_maybe_bit_OR_exp( bool &correct ) {
   if ( r_o_maybe_bit_ex_OR_exp1Correct ) {
     do {
       peek = mScanner.PeekToken() ; // peek OR
-      if ( peek.type == OR ) {
+      if ( peek.type == OR_OP ) {
         token = mScanner.GetToken() ; // get 'OR'
         Maybe_bit_ex_OR_exp( maybe_bit_ex_OR_exp1Correct ) ;
         if ( !maybe_bit_ex_OR_exp1Correct ) {
@@ -2451,11 +2468,9 @@ bool Parser::Done( Token peek ) {
   return false ;
 } // Parser::Done()
 
-bool Parser::Cin( Token peek ) {
-} // Parser::Cin()
-
-bool Parser::Cout( Token peek ) {
-} // Parser::Cout()
+void Parser::CleanTokenBuffer() {
+  mTokenList.clear() ;
+} // Parser::CleanTokenBuffer()
 
 void Parser::ErrorMessage() {
   Token token ;
@@ -2506,6 +2521,11 @@ void Parser::Print_Unexpected( Token token ) {
   string output = "unexpected token : '" + token.tokenValue + "'" ;
   printf( "Line %d : %s\n", token.line, output.c_str() ) ; // c++ string to c string
 } // Parser::Print_Unexpected()
+
+void Parser::Print_Undefined( Token token ) {
+  string output = "undefined token : '" + token.tokenValue + "'" ;
+  printf( "Line %d : %s\n", token.line, output.c_str() ) ; // c++ string to c string
+} // Parser::Print_Undefined()
 
 int main() {
   char ch = '\0' ; // read '\n'
