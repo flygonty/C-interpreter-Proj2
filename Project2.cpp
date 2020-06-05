@@ -602,7 +602,8 @@ public:
 
 bool Parser::User_input() {
   // : ( definition | statement ) { definition | statement }
-  
+  uIsVariable = false ; // global variable
+  uIsFunction = false ; // global variable
   bool definition1Correct = false, statement1Correct = false ;
   string statementID ;
   Token peek ;
@@ -634,7 +635,12 @@ bool Parser::User_input() {
           printf( "%s\n", mVariableList[i].id.c_str() ) ;
         } // for
       } // if
-
+      else if ( strcmp( statementID.c_str(), "ListVariable" ) == 0 ) {
+        for ( int i = 0 ; i < mVariableList.size() ; i++ ) {
+          printf( "%s\n", mVariableList[i].id.c_str() ) ;
+        } // for
+      } // if
+ 
       printf( "Statement executed...\n" ) ;
     } // if
   } // else
@@ -659,9 +665,11 @@ void Parser::Definition( bool &correct ) {
   correct = true ;
   if ( peek.type == VOID ) {
     token = mScanner.GetToken() ; // get the void token
+    mTokenList.push_back( token ) ; // push to buffer 
     peek = mScanner.PeekToken() ; // peek IDENT
     if ( peek.type == IDENT ) {
       token = mScanner.GetToken() ; // get ident
+      mTokenList.push_back( token ) ; // push to buffer 
       Function_definition_without_ID( f_d_w_ID ) ;
       if ( !f_d_w_ID ) {
         // error
@@ -723,6 +731,8 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
 
   correct = true ;
   if ( peek.type == LEFT_PAREN ) {
+    uIsVariable = false ; // global variable
+    uIsFunction = true ; // global variable
     Function_definition_without_ID( f_d_w_ID ) ;
     if ( !f_d_w_ID ) {
       // error
@@ -743,7 +753,7 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
 
   return ;
 } // Parser::Function_definition_or_declarators()
-
+// mTokenList.push_back( token ) ; // push to buffer 
 void Parser::Rest_of_declarators( bool &correct ) {
   // : [ '[' Constant ']' ] 
   // { ',' Identifier [ '[' Constant ']' ] } ';'
@@ -1104,6 +1114,7 @@ void Parser::Statement( bool &correct ) {
   } // if
   else if ( peek.type == IDENT || peek.type == PP || peek.type == MM || 
             Sign( peek ) || peek.type == CONSTANT || peek.type == LEFT_PAREN ) {
+    cout << "1117 " ;
     Expression( expression1Correct ) ;
     if ( expression1Correct ) {
       peek = mScanner.PeekToken() ; // peek ';'
