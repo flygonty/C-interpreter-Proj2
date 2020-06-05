@@ -79,6 +79,7 @@ struct Token {
 };
 
 struct Variable {
+  string type ;
   string id ;
   string constant ;
 };
@@ -575,13 +576,18 @@ public:
   void Signed_unary_exp( bool &correct ) ;
   void Unsigned_unary_exp( bool &correct ) ;
 
-  void Print_SaveDefinition() ;
+  bool SameType( string ID, string Type ) ;
+  bool SameConstant( string ID, string Constant ) ;
+  bool IntheList( string ID ) ;
+  void Save_Definition() ;
+
+  void Print_NewDefinition_Variable( string ID ) ;
+  void Print_NewDefinition_Function( string ID ) ;
   void Print_Definition_Variable( string ID ) ;
   void Print_Definition_Function( string ID ) ;
   void Print_NewDefinition( string ID ) ;
 
   bool Done( Token peek ) ;
-
   void CleanTokenBuffer() ;
   void ErrorMessage() ;
 
@@ -598,6 +604,7 @@ bool Parser::User_input() {
   // : ( definition | statement ) { definition | statement }
   
   bool definition1Correct = false, statement1Correct = false ;
+  string statementID ;
   Token peek ;
   peek = mScanner.PeekToken() ;
 
@@ -605,15 +612,29 @@ bool Parser::User_input() {
     return false ;
   } // if
 
+
   if ( peek.type == VOID || Type_specifier( peek ) ) {
     Definition( definition1Correct ) ;
     if ( definition1Correct ) {
-      Print_SaveDefinition() ;
+      Save_Definition() ;
     } // if
   } // if
   else {
     Statement( statement1Correct ) ;
+    if ( strcmp( peek.tokenValue.c_str(), "ListAllVariables" ) == 0 ) {
+      statementID = peek.tokenValue ;
+    } // if
+    else if ( strcmp( peek.tokenValue.c_str(), "ListVariable" ) == 0 ) {
+      statementID = peek.tokenValue ;
+    } // if
+
     if ( statement1Correct ) {
+      if ( strcmp( statementID.c_str(), "ListAllVariables" ) == 0 ) {
+        for ( int i = 0 ; i < mVariableList.size() ; i++ ) {
+          printf( "%s\n", mVariableList[i].id.c_str() ) ;
+        } // for
+      } // if
+
       printf( "Statement executed...\n" ) ;
     } // if
   } // else
@@ -2450,31 +2471,105 @@ void Parser::Unsigned_unary_exp( bool &correct ) {
   } // else
 } // Parser::Unsigned_unary_exp()
 
-void Parser::Print_SaveDefinition() {
-  Variable variable ; 
-  if ( uIsVariable && !uIsFunction ) {
-    for ( int i = 1 ; i < mTokenList.size() ; i++ ) { // [0] is Type, so use element after [0]
+bool Parser::SameType( string ID, string Type ) {
+  for ( int i = 0 ; i < mVariableList.size() ; i++ ) {
+    if ( strcmp( mVariableList[i].id.c_str(), ID.c_str() ) == 0 ) {
+      if ( strcmp( mVariableList[i].type.c_str(), Type.c_str() ) == 0 )
+        return true ;
+    } // if
+  } // for
+
+  return false ;
+} // Parser::SameType()
+
+bool Parser::SameConstant( string ID, string Constant ) {
+  for ( int i = 0 ; i < mVariableList.size() ; i++ ) {
+    if ( strcmp( mVariableList[i].id.c_str(), ID.c_str() ) == 0 ) {
+      if ( strcmp( mVariableList[i].constant.c_str(), Constant.c_str() ) == 0 )
+        return true ;
+    } // if
+  } // for
+
+  return false ;
+} // Parser::SameConstant()
+
+bool Parser::IntheList( string ID ) {
+  for ( int i = 0 ; i < mVariableList.size() ; i++ ) {
+    if ( strcmp( mVariableList[i].id.c_str(), ID.c_str() ) == 0 ) {
+      return true ;
+    } // if
+  } // for
+
+  return false ;
+} // Parser::IntheList()
+
+void Parser::Save_Definition() {
+  Variable variable ;
+  if ( uIsVariable && !uIsFunction ) { // Variable
+    variable.type = mTokenList[0].tokenValue ; // give it type
+    for ( int i = 1 ; i < mTokenList.size() ; i++ ) {
       if ( mTokenList[i].type == IDENT ) {
         variable.id = mTokenList[i].tokenValue ;
-        Print_Definition_Variable( variable.id ) ;
+        if ( IntheList( variable.id ) ) {
+          Print_NewDefinition_Variable( variable.id ) ;
+        } // if
+        else {
+          Print_Definition_Variable( variable.id ) ;
+        } // else
       } // if
       else if ( mTokenList[i].type == CONSTANT ) {
         variable.constant = mTokenList[i].tokenValue ;
-      } // if
+      } // else if
 
-      if ( variable.id != "" )
+      if ( variable.id != "" && !IntheList( variable.id ) ) {
         mVariableList.push_back( variable ) ;
-      variable.id = "" ;
-      variable.constant = "" ;
+	  } // if
+      else if ( variable.id != "" && IntheList( variable.id ) ) {
+        if ( SameType( variable.id, variable.type ) ) {
+          if ( !SameConstant( variable.id, variable.constant ) ) {
+            // change the variable constant
+            for ( int j = 0 ; j < mVariableList.size() ; j++ ) {
+              if ( strcmp( mVariableList[j].id.c_str(), variable.id.c_str() ) == 0 ) {
+                mVariableList[j].constant = variable.constant ;
+              } // if
+            } // for
+          } // if
+        } // if
+        else { // change type and constant
+          if ( !SameConstant( variable.id, variable.constant ) ) {
+            for ( int j = 0 ; j < mVariableList.size() ; j++ ) {
+              if ( strcmp( mVariableList[j].id.c_str(), variable.id.c_str() ) == 0 ) {
+                mVariableList[j].type = variable.type ;
+                mVariableList[j].constant = variable.constant ;
+              } // if
+            } // for
+          } // if
+          else {
+            // change type
+            for ( int j = 0 ; j < mVariableList.size() ; j++ ) {
+              if ( strcmp( mVariableList[j].id.c_str(), variable.id.c_str() ) == 0 ) {
+                mVariableList[j].type = variable.type ;
+              } // if
+            } // for
+          } // else
+        } // else
+      } // else if
+
+      if ( mTokenList[i-2].type != IDENT )
+        variable.constant = "" ; // if it's not belonging for this id then empty this buffer
     } // for
   } // if
-  else if ( !uIsVariable && uIsFunction ) { // function haven't done.
-  } // else if
 
-  for ( int i = 0 ; i < mVariableList.size() ; i++ )
-    cout << mVariableList[i].id << "  " << mVariableList[i].constant << " total size " << mVariableList.size() <<  endl ;
   CleanTokenBuffer() ;
-} // Parser::Print_Definition()
+} // Parser::Save_Definition()
+
+void Parser::Print_NewDefinition_Variable( string ID ) {
+  printf( "New Definition of %s entered ...\n", ID.c_str() ) ;
+} // Parser::Print_NewDefinition_Variable()
+
+void Parser::Print_NewDefinition_Function( string ID ) {
+  printf( "New Definition of %s() entered ...\n", ID.c_str() ) ;
+} // Parser::Print_NewDefinition_Function()
 
 void Parser::Print_Definition_Variable( string ID ) {
   printf( "Definition of %s entered ...\n", ID.c_str() ) ;
@@ -2591,5 +2686,6 @@ int main() {
 
 
 } // main()
+
 
 
