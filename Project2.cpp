@@ -636,13 +636,13 @@ bool Parser::User_input() {
 
   if ( peek.type == VOID || Type_specifier( peek ) ) {
     Definition( definition1Correct ) ;
-    cout << mFunctionVariableList[0].functionVariableList.size() ;
     if ( definition1Correct ) {
       Save_Definition() ;
       for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
         cout << "642 : " << mFunctionVariableList[i].function_id << endl ;
 		for ( int j = 0 ; j < mFunctionVariableList[i].functionVariableList.size() ; j++  ) {
-			cout << mFunctionVariableList[i].functionVariableList[j].id << endl ;
+			cout << mFunctionVariableList[i].functionVariableList[j].type << 
+			mFunctionVariableList[i].functionVariableList[j].id << " " << mFunctionVariableList[i].functionVariableList[j].constant << endl ;
 		} // for
       } // for
     } // if
@@ -716,10 +716,18 @@ void Parser::Definition( bool &correct ) {
     peek = mScanner.PeekToken() ; // peek IDENT
     if ( peek.type == IDENT ) {
       gFunctionVariable.function_id = peek.tokenValue ; // assign ID give it to gFuncVariable
+      if ( IntheFunctionList( gFunctionVariable.function_id ) ) {
+        for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
+          if ( strcmp( gFunctionVariable.function_id.c_str(), mFunctionVariableList[i].function_id.c_str() ) == 0 ) {
+            mFunctionVariableList[i].functionVariableList.clear() ;
+          } // if
+        } // for
+      } // if
+
+
       token = mScanner.GetToken() ; // get ident
       mTokenList.push_back( token ) ; // push to buffer 
       Function_definition_without_ID( f_d_w_ID ) ;
-      cout << "721 function ID : " << gFunctionVariable.function_id << endl ;
       if ( !f_d_w_ID ) {
         // error
         ErrorProcess() ;
@@ -741,7 +749,6 @@ void Parser::Definition( bool &correct ) {
       token = mScanner.GetToken() ; // get ident
       mTokenList.push_back( token ) ;
       Function_definition_or_declarators( f_d_o_d ) ;
-      cout << "739 function ID : " << gFunctionVariable.function_id << endl ;
       if ( !f_d_o_d ) {
         // error
         correct = false ;
@@ -810,7 +817,6 @@ void Parser::Function_definition_or_declarators( bool &correct ) {
 void Parser::Rest_of_declarators( bool &correct ) {
   // : [ '[' Constant ']' ] 
   // { ',' Identifier [ '[' Constant ']' ] } ';'
-  cout << "812 " << gFunctionVariable.functionVariableList.size() ;
   Token token, peek ;
   peek = mScanner.PeekToken() ;
   if ( peek.type == LB ) {
@@ -1147,7 +1153,6 @@ void Parser::Compound_statement( bool &correct ) {
   Token token, peek ;
   bool declaration1Correct = false, statement1Correct = false ;
   peek = mScanner.PeekToken() ; // peek '{'
-
   if ( peek.type == LCB ) {
     token = mScanner.GetToken() ;
     mTokenList.push_back( token ) ; // push to buffer 
@@ -1158,13 +1163,37 @@ void Parser::Compound_statement( bool &correct ) {
     return ;
   } // else
 
+  peek = mScanner.PeekToken() ;
+  if ( peek.type == RCB ) { // { empty }
+    Variable variable ;
+ 
+    for ( int i = 0 ; i < mTokenList.size() ; i++ ) {
+      if ( Type_specifier( mTokenList[i] ) ) {
+        variable.type = mTokenList[i].tokenValue ;
+      } // if
+      else if ( mTokenList[i].type == IDENT ) {
+        variable.id = mTokenList[i].tokenValue ;
+        if ( i + 2 < mTokenList.size() && mTokenList[i+2].type == CONSTANT ) {
+          variable.constant = mTokenList[i+2].tokenValue ;
+          gFunctionVariable.functionVariableList.push_back( variable ) ;
+          variable.constant = "" ;
+        } // if
+        else {
+          gFunctionVariable.functionVariableList.push_back( variable ) ;
+        } // else
+      } // if
+    } // for
+
+    mFunctionVariableList.push_back( gFunctionVariable ) ;
+  } // if
+
   do {
     peek = mScanner.PeekToken() ;
 
     if ( peek.type == RCB ) {
       correct = true ;
       token = mScanner.GetToken() ;
-      mTokenList.push_back( token ) ; // push to buffer 
+      mTokenList.push_back( token ) ; // push to buffer
       return ; // meet ' }' then break
     } // if
 
@@ -1231,7 +1260,6 @@ void Parser::Statement( bool &correct ) {
   Token token, peek ;
   bool c_s1Correct = false, expression1Correct, statement1Correct ;
   peek = mScanner.PeekToken() ;
-
   if ( peek.type == SEMICOLON ) {
     token = mScanner.GetToken() ;
     mTokenList.push_back( token ) ; // push to buffer
@@ -1505,6 +1533,9 @@ void Parser::Basic_expression( bool &correct ) {
   if ( peek.type == IDENT ) {
     if ( !IsListFunction( peek ) ) {
       if ( uIsFunction ) {
+        if ( !HasFunctionVariable( peek.tokenValue ) ) {
+          cout << "1528 : Error" << endl ;
+        } // if
       } // if
       if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
         Undefined() ;
@@ -1512,6 +1543,7 @@ void Parser::Basic_expression( bool &correct ) {
         return ;
       } // if
     } // if
+
 
     token = mScanner.GetToken() ; // get Identifier
     mTokenList.push_back( token ) ; // push to token buffer
@@ -2809,7 +2841,7 @@ void Parser::Save_Definition() {
     } // for
   } // if
   else if ( !uIsVariable && uIsFunction ) {
-    cout << "Function definition " << endl ;
+    cout << endl << "Function definition " << endl ;
     Function function ;
     // get function type and id
     int pos_FisrstLCB = 0 ;
@@ -2848,8 +2880,21 @@ void Parser::Save_Definition() {
       } // else if
     } // for
 
-    mFunctionList.push_back( function ) ;
-    cout << "Function Type and ID : " << function.type.tokenValue << " " << function.function_id.tokenValue << endl ;   
+    if ( !IntheFunctionList( function.function_id.tokenValue.c_str() ) ) {
+      mFunctionList.push_back( function ) ;
+    } // if
+    else {
+      // change value
+      for ( int i = 0 ; i < mFunctionList.size() ; i++ ) {
+        if ( strcmp( function.function_id.tokenValue.c_str(), mFunctionList[i].function_id.tokenValue.c_str() ) ) {
+          mFunctionList[i].type = function.type ;
+          mFunctionList[i].parameter = function.parameter ;
+          mFunctionList[i].statement = function.statement ;
+        } // if
+      } // for
+    } // else
+
+    cout << endl << "Function Type and ID : " << function.type.tokenValue << " " << function.function_id.tokenValue << endl ;   
     for ( int j = 0 ; j < function.parameter.size() ; j++ ) {
       cout << "Parameter List : " << function.parameter[j].type << "  " << function.parameter[j].id << "  " << function.parameter[j].constant << endl ;
     } // for
@@ -2965,6 +3010,20 @@ bool Parser::IsUnrecognized( string& token ) {
 
   return false ;
 } // Parser::IsUnrecognized()
+
+bool Parser::HasFunctionVariable( string ID ) {
+  for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
+    if ( strcmp( gFunctionVariable.function_id.c_str(), mFunctionVariableList[i].function_id.c_str() ) == 0 ) {
+      for ( int j = 0 ; j < mFunctionVariableList[i].functionVariableList.size() ; j++ ) {
+        if ( strcmp( ID.c_str(), mFunctionVariableList[i].functionVariableList[j].id.c_str() ) == 0 ) {
+          return true ;
+        } // if
+      } // for
+    } // if
+  } // for
+
+  return false ;
+} // Parser::HasFunctionVariable()
 
 bool Parser::IsListFunction( Token peek ) {
   if ( strcmp( peek.tokenValue.c_str(), "ListAllVariables" ) == 0 ) {
