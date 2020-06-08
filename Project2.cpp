@@ -11,9 +11,8 @@
 # define NUM_INFINITY 69454559
 using namespace std;
 
-/* Undefined -> Function, function variable
-   function save and print 
-   new definition function
+/* 
+   function print 
 */
 
 static int uTestNum = 0 ;
@@ -1534,7 +1533,9 @@ void Parser::Basic_expression( bool &correct ) {
     if ( !IsListFunction( peek ) ) {
       if ( uIsFunction ) {
         if ( !HasFunctionVariable( peek.tokenValue ) ) {
-          cout << "1528 : Error" << endl ;
+          Undefined() ;
+          correct = false ;
+          return ;
         } // if
       } // if
       if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
@@ -1543,7 +1544,6 @@ void Parser::Basic_expression( bool &correct ) {
         return ;
       } // if
     } // if
-
 
     token = mScanner.GetToken() ; // get Identifier
     mTokenList.push_back( token ) ; // push to token buffer
@@ -1562,6 +1562,21 @@ void Parser::Basic_expression( bool &correct ) {
     mTokenList.push_back( token ) ; // push to token buffer
     peek = mScanner.PeekToken() ; // peek Identifier
     if ( peek.type == IDENT ) {
+      if ( !IsListFunction( peek ) ) {
+        if ( uIsFunction ) {
+          if ( !HasFunctionVariable( peek.tokenValue ) ) {
+            Undefined() ;
+            correct = false ;
+            return ;
+          } // if
+        } // if
+        if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
+          Undefined() ;
+          correct = false ;
+          return ;
+        } // if
+      } // if
+
       token = mScanner.GetToken() ; // get Identifier
       mTokenList.push_back( token ) ; // push to token buffer
       Rest_of_PPMM_Identifier_started_basic_exp( r_o_PPMM_I_s_b_e1Correct ) ;
@@ -2456,10 +2471,19 @@ void Parser::Unary_exp( bool &correct ) {
     mTokenList.push_back( token ) ; // push to token buffer
     peek = mScanner.PeekToken() ;
     if ( peek.type == IDENT ) {
-      if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-        Undefined() ;
-        correct = false ;
-        return ;
+      if ( !IsListFunction( peek ) ) {
+        if ( uIsFunction ) {
+          if ( !HasFunctionVariable( peek.tokenValue ) ) {
+            Undefined() ;
+            correct = false ;
+            return ;
+          } // if
+        } // if
+        if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
+          Undefined() ;
+          correct = false ;
+          return ;
+        } // if
       } // if
 
       token = mScanner.GetToken() ; // get Identitifier
@@ -2518,10 +2542,19 @@ void Parser::Signed_unary_exp( bool &correct ) {
 
   peek = mScanner.PeekToken() ; // peek Ident, Constant, '('
   if ( peek.type == IDENT ) {
-    if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-      Undefined() ;
-      correct = false ;
-      return ;
+    if ( !IsListFunction( peek ) ) {
+      if ( uIsFunction ) {
+        if ( !HasFunctionVariable( peek.tokenValue ) ) {
+          Undefined() ;
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
+        Undefined() ;
+        correct = false ;
+        return ;
+      } // if
     } // if
 
     token = mScanner.GetToken() ; // get Ident
@@ -2630,10 +2663,19 @@ void Parser::Unsigned_unary_exp( bool &correct ) {
 
   peek = mScanner.PeekToken() ; // peek Ident, Constant, '('
   if ( peek.type == IDENT ) {
-    if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-      Undefined() ;
-      correct = false ;
-      return ;
+    if ( !IsListFunction( peek ) ) {
+      if ( uIsFunction ) {
+        if ( !HasFunctionVariable( peek.tokenValue ) ) {
+          Undefined() ;
+          correct = false ;
+          return ;
+        } // if
+      } // if
+      if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
+        Undefined() ;
+        correct = false ;
+        return ;
+      } // if
     } // if
 
     token = mScanner.GetToken() ; // get Ident
