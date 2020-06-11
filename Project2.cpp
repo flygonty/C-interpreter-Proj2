@@ -104,6 +104,8 @@ struct FunctionVariable {
 
 FunctionVariable gFunctionVariable ; // global function variable
 bool gCheck ;
+int gLine ;
+int gRecursive ;
 
 class Scanner {
 private:
@@ -113,8 +115,8 @@ public:
   Scanner() ;
   Token PeekToken() ;
   Token GetToken() ;
+  void ModifyLine() ;
   void InitializeLine() ;
-  void InitializeAfterCheck() ;
   void ModifyPeekLine() ;
   void PrintLine() ;
 }; // Scanner
@@ -122,20 +124,22 @@ public:
 Scanner::Scanner() {
   // initial constructor
   mLine = 1 ;
+  gLine = 1 ;
 } // Scanner::Scanner()
 
 void Scanner::PrintLine() {
   cout << "mLine : " << mLine << endl ;
 } // Scanner::PrintLine()
 
+void Scanner::ModifyLine() {
+  mBuf_token.line = gRecursive ;
+} // Scanner::ModifyLine()
+
 void Scanner::ModifyPeekLine() {
   // set it to 1
-  mBuf_token.line = 1 ;
+  mBuf_token.line = gLine ;
 } // Scanner::ModifyPeekLine()
 
-void Scanner::InitializeAfterCheck() {
-  mLine = 0 ;
-} // Scanner::InitializeAfterCheck()
 
 void Scanner::InitializeLine() {
   mLine = 1 ;
@@ -160,6 +164,7 @@ Token Scanner::GetToken() {
     // if buffer it's not empty then use it and return for parser
     temp_Token.tokenValue = mBuf_token.tokenValue;
     temp_Token.type = mBuf_token.type;
+    temp_Token.line = mBuf_token.line ;
     mBuf_token.tokenValue = ""; // empty the buffer
   } // if
   else {
@@ -170,6 +175,8 @@ Token Scanner::GetToken() {
     else if ( peek_char == '\n' ) {
       cin.get();
       mLine++ ;
+      gLine++ ;
+      gRecursive++ ;
       temp_Token = GetToken();
     } // else if
     else if ( peek_char == '(' ) {
@@ -504,7 +511,10 @@ Token Scanner::GetToken() {
           temp_Token.tokenValue = temp_Token.tokenValue + get_char;
           temp_peek = cin.peek() ;
         } // while()
+        
+
       } // if()
+
 
       if ( strcmp( temp_Token.tokenValue.c_str(), "true" ) == 0 ) {
         temp_Token.type = CONSTANT ;
@@ -551,8 +561,14 @@ Token Scanner::GetToken() {
     } // else
   } // else
 
-  temp_Token.line = mLine ;
-  cout << "550 : " << temp_Token.tokenValue << "  " << mLine << endl ;
+
+  // temp_Token.line = mLine ;
+  if ( gLine == 1 && gRecursive == 0 )
+    temp_Token.line = gLine ;
+  else 
+    temp_Token.line = gRecursive ;
+  // cout << "550 : " << temp_Token.tokenValue << "  " << mLine 
+  // << " gLine :  " << gLine << " gRecursive : " << gRecursive << endl ;
   // cout << temp_Token.tokenValue << "  " << temp_Token.type << " " << temp_Token.line << endl ;
   return temp_Token ;
 } // Scanner::GetToken()
@@ -650,14 +666,16 @@ bool Parser::User_input() {
   string statementID ;
   Token peek ;
   mScanner.InitializeLine() ;
-
+  gLine = 1 ;
+  gRecursive = 0 ;
   if ( Done( peek ) ) {
     return false ;
   } // if
 
-  mScanner.PrintLine() ;
+  // mScanner.PrintLine() ;
   peek = mScanner.PeekToken() ;
-  mScanner.PrintLine();
+  // mScanner.PrintLine();
+
   if ( Done( peek ) ) {
     return false ;
   } // if
@@ -1657,7 +1675,7 @@ void Parser::Basic_expression( bool &correct ) {
 
         } // if
         else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
-                && !IntheTempList( peek.tokenValue ) ) { // Undefined
+                  && !IntheTempList( peek.tokenValue ) ) { // Undefined
           Undefined() ;
           correct = false ;
           return ;
