@@ -18,7 +18,6 @@ using namespace std;
 */
 
 static int uTestNum = 0 ;
-static float uTolerance = 0.0001; // tolerance number
 
 static bool uIsVariable = false ;
 static bool uIsFunction = false ;
@@ -104,6 +103,7 @@ struct FunctionVariable {
 };
 
 FunctionVariable gFunctionVariable ; // global function variable
+bool gCheck ;
 
 class Scanner {
 private:
@@ -114,6 +114,8 @@ public:
   Token PeekToken() ;
   Token GetToken() ;
   void InitializeLine() ;
+  void InitializeAfterCheck() ;
+  void ModifyPeekLine() ;
 }; // Scanner
 
 Scanner::Scanner() {
@@ -121,8 +123,17 @@ Scanner::Scanner() {
   mLine = 1 ;
 } // Scanner::Scanner()
 
-void Scanner::InitializeLine() {
+void Scanner::ModifyPeekLine() {
+  // set it to 1
+  mBuf_token.line = 1 ;
+} // Scanner::ModifyPeekLine()
+
+void Scanner::InitializeAfterCheck() {
   mLine = 0 ;
+} // Scanner::InitializeAfterCheck()
+
+void Scanner::InitializeLine() {
+  mLine = 1 ;
 } // Scanner::InitializeLine()
 
 Token Scanner::PeekToken() {
@@ -130,7 +141,7 @@ Token Scanner::PeekToken() {
   if ( mBuf_token.tokenValue == "" ) {
     mBuf_token = GetToken();
   } // if
-  
+
   return mBuf_token;
 } // Scanner::PeekToken()
 
@@ -535,8 +546,9 @@ Token Scanner::GetToken() {
     } // else
   } // else
 
-  // cout << temp_Token.tokenValue << "  " << temp_Token.type << endl ;
   temp_Token.line = mLine ;
+  cout << mLine << endl ;
+  // cout << temp_Token.tokenValue << "  " << temp_Token.type << " " << temp_Token.line << endl ;
   return temp_Token ;
 } // Scanner::GetToken()
 
@@ -620,8 +632,9 @@ public:
   void Print_Unrecognized( Token token ) ;
   void Print_Unexpected( Token token ) ;
   void Print_Undefined( Token token ) ;
-
+  void Print_Function() ;
 }; // Parser
+
 
 bool Parser::User_input() {
   // : ( definition | statement ) { definition | statement }
@@ -631,12 +644,17 @@ bool Parser::User_input() {
   bool definition1Correct = false, statement1Correct = false ;
   string statementID ;
   Token peek ;
-  peek = mScanner.PeekToken() ;
+  mScanner.InitializeLine() ;
 
   if ( Done( peek ) ) {
     return false ;
   } // if
 
+  peek = mScanner.PeekToken() ;
+
+  if ( Done( peek ) ) {
+    return false ;
+  } // if
 
   if ( peek.type == VOID || Type_specifier( peek ) ) {
     Definition( definition1Correct ) ;
@@ -704,7 +722,6 @@ bool Parser::User_input() {
 
   gFunctionVariable.function_id = "" ; // empty id
   gFunctionVariable.functionVariableList.clear() ; // clear vector
-  mScanner.InitializeLine() ; // every one command need to intialize
   CleanTokenBuffer() ;
   return true ;
 } // Parser::User_input()
@@ -1186,6 +1203,7 @@ void Parser::Compound_statement( bool &correct ) {
   Token token, peek ;
   bool declaration1Correct = false, statement1Correct = false ;
   peek = mScanner.PeekToken() ; // peek '{'
+
   if ( peek.type == LCB ) {
     token = mScanner.GetToken() ;
     mTokenList.push_back( token ) ; // push to buffer 
@@ -1587,28 +1605,19 @@ void Parser::Basic_expression( bool &correct ) {
   bool expression1Correct = false ;
 
   peek = mScanner.PeekToken() ; // peek token to determine go which ways
+
   if ( peek.type == IDENT ) {
     if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
       if ( uIsFunction ) {
-        if ( !HasFunctionVariable( peek.tokenValue ) ) {
+        if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
           Undefined() ;
           correct = false ;
           return ;
         } // if
 
-        if ( !IntheTempList( peek.tokenValue ) ) {
-          Undefined() ;
-          correct = false ;
-          return ;
-        } // if
       } // if
-      else if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-        Undefined() ;
-        correct = false ;
-        return ;
-      } // if
-      else if ( !uIsFunction && !IntheTempList( peek.tokenValue ) 
-                && !IntheList( peek.tokenValue ) && mTempList.size() > 0 ) { // Undefined
+      else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
+                && !IntheTempList( peek.tokenValue ) ) { // Undefined
         Undefined() ;
         correct = false ;
         return ;
@@ -1634,26 +1643,15 @@ void Parser::Basic_expression( bool &correct ) {
     if ( peek.type == IDENT ) {
       if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
         if ( uIsFunction ) {
-          if ( !HasFunctionVariable( peek.tokenValue ) ) {
+          if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
             Undefined() ;
             correct = false ;
             return ;
           } // if
 
-          if ( !IntheTempList( peek.tokenValue ) ) {
-            Undefined() ;
-            correct = false ;
-            return ;
-          } // if
         } // if
-
-        if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-          Undefined() ;
-          correct = false ;
-          return ;
-        } // if
-
-        if ( !uIsFunction && !IntheTempList( peek.tokenValue ) && mTempList.size() > 0 ) { // Undefined
+        else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
+                && !IntheTempList( peek.tokenValue ) ) { // Undefined
           Undefined() ;
           correct = false ;
           return ;
@@ -1812,6 +1810,7 @@ void Parser::Rest_of_Identifier_started_basic_exp( bool &correct ) {
   if ( Assignment_operator( peek ) ) {
     token = mScanner.GetToken() ; // get Assignment op
     mTokenList.push_back( token ) ; // push to token buffer
+
     Basic_expression( b_expression1Correct ) ;
     if ( b_expression1Correct ) {
       correct = true ;
@@ -2494,7 +2493,6 @@ void Parser::Maybe_additive_exp( bool &correct ) {
 void Parser::Rest_of_maybe_additive_exp( bool &correct ) {
   Token token, peek ;
   bool r_maybe_mult_exp1Correct = false, maybe_mult_exp1Correct = false ;
-
   Rest_of_maybe_mult_exp( r_maybe_mult_exp1Correct ) ;
   if ( r_maybe_mult_exp1Correct ) {
     do {
@@ -2568,7 +2566,7 @@ void Parser::Unary_exp( bool &correct ) {
 
   peek = mScanner.PeekToken() ;
   if ( Sign( peek ) ) {
-    while ( !Sign( peek ) ) {
+    while ( Sign( peek ) ) {
       token = mScanner.GetToken() ;
       mTokenList.push_back( token ) ; // push to token buffer
       peek = mScanner.PeekToken() ;
@@ -2591,26 +2589,15 @@ void Parser::Unary_exp( bool &correct ) {
     if ( peek.type == IDENT ) {
       if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
         if ( uIsFunction ) {
-          if ( !HasFunctionVariable( peek.tokenValue ) ) {
+          if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
             Undefined() ;
             correct = false ;
             return ;
           } // if
 
-          if ( !IntheTempList( peek.tokenValue ) ) {
-            Undefined() ;
-            correct = false ;
-            return ;
-          } // if
         } // if
-
-        if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-          Undefined() ;
-          correct = false ;
-          return ;
-        } // if
-
-        if ( !uIsFunction && !IntheTempList( peek.tokenValue ) && mTempList.size() > 0 ) { // Undefined
+        else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
+                  && !IntheTempList( peek.tokenValue ) ) { // Undefined
           Undefined() ;
           correct = false ;
           return ;
@@ -2675,26 +2662,15 @@ void Parser::Signed_unary_exp( bool &correct ) {
   if ( peek.type == IDENT ) {
     if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
       if ( uIsFunction ) {
-        if ( !HasFunctionVariable( peek.tokenValue ) ) {
+        if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
           Undefined() ;
           correct = false ;
           return ;
         } // if
 
-        if ( !IntheTempList( peek.tokenValue ) ) {
-          Undefined() ;
-          correct = false ;
-          return ;
-        } // if
       } // if
-
-      if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-        Undefined() ;
-        correct = false ;
-        return ;
-      } // if
-
-      if ( !uIsFunction && !IntheTempList( peek.tokenValue ) && mTempList.size() > 0 ) { // Undefined
+      else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
+                && !IntheTempList( peek.tokenValue ) ) { // Undefined
         Undefined() ;
         correct = false ;
         return ;
@@ -2823,29 +2799,19 @@ void Parser::Unsigned_unary_exp( bool &correct ) {
   bool actual_parameter_list1Correct = false, expression1Correct = false ;
 
   peek = mScanner.PeekToken() ; // peek Ident, Constant, '('
+
   if ( peek.type == IDENT ) {
     if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
       if ( uIsFunction ) {
-        if ( !HasFunctionVariable( peek.tokenValue ) ) {
+        if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
           Undefined() ;
           correct = false ;
           return ;
         } // if
 
-        if ( !IntheTempList( peek.tokenValue ) ) {
-          Undefined() ;
-          correct = false ;
-          return ;
-        } // if
       } // if
-
-      if ( !uIsFunction && !IntheList( peek.tokenValue ) ) { // Undefined
-        Undefined() ;
-        correct = false ;
-        return ;
-      } // if
-
-      if ( !uIsFunction && !IntheTempList( peek.tokenValue ) && mTempList.size() > 0 ) { // Undefined
+      else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
+                && !IntheTempList( peek.tokenValue ) ) { // Undefined
         Undefined() ;
         correct = false ;
         return ;
@@ -3254,6 +3220,7 @@ void Parser::CleanTokenBuffer() {
 void Parser::ErrorMessage() {
   Token token ;
   token = mScanner.GetToken() ;
+
   if ( IsUnrecognized( token.tokenValue ) ) {
     Print_Unrecognized( token ) ;
   } // if
@@ -3261,7 +3228,6 @@ void Parser::ErrorMessage() {
     Print_Unexpected( token ) ;
   } // else
 
-  mScanner.InitializeLine() ;
   ErrorProcess() ;
 } // Parser::ErrorMessage()
 
@@ -3339,7 +3305,7 @@ void Parser::Undefined() {
   Token token ;
   token = mScanner.GetToken() ;
   Print_Undefined( token ) ;
-  mScanner.InitializeLine() ;
+
   ErrorProcess() ;
 } // Parser::Undefined()
 
@@ -3358,6 +3324,9 @@ void Parser::Print_Undefined( Token token ) {
   printf( "Line %d : %s\n", token.line, output.c_str() ) ; // c++ string to c string
 } // Parser::Print_Undefined()
 
+void Parser::Print_Function() {
+} // Parser::Print_Function()
+
 int main() {
   char ch = '\0' ; // read '\n'
   Token token ;
@@ -3367,7 +3336,7 @@ int main() {
   // scanf( "%d%c", &uTestNum, &ch ) ;
   printf( "Our-C running ...\n" ) ;
   while ( jumpOut != true ) {
-    printf( "> " ) ; 
+    printf( "> " ) ;
     if ( !parser.User_input() ) {
         jumpOut = true ;
     } // if
