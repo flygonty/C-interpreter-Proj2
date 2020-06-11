@@ -116,12 +116,17 @@ public:
   void InitializeLine() ;
   void InitializeAfterCheck() ;
   void ModifyPeekLine() ;
+  void PrintLine() ;
 }; // Scanner
 
 Scanner::Scanner() {
   // initial constructor
   mLine = 1 ;
 } // Scanner::Scanner()
+
+void Scanner::PrintLine() {
+  cout << "mLine : " << mLine << endl ;
+} // Scanner::PrintLine()
 
 void Scanner::ModifyPeekLine() {
   // set it to 1
@@ -547,7 +552,7 @@ Token Scanner::GetToken() {
   } // else
 
   temp_Token.line = mLine ;
-  cout << mLine << endl ;
+  cout << "550 : " << temp_Token.tokenValue << "  " << mLine << endl ;
   // cout << temp_Token.tokenValue << "  " << temp_Token.type << " " << temp_Token.line << endl ;
   return temp_Token ;
 } // Scanner::GetToken()
@@ -650,8 +655,9 @@ bool Parser::User_input() {
     return false ;
   } // if
 
+  mScanner.PrintLine() ;
   peek = mScanner.PeekToken() ;
-
+  mScanner.PrintLine();
   if ( Done( peek ) ) {
     return false ;
   } // if
