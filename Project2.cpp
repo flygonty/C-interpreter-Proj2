@@ -5,6 +5,7 @@
 # include <iostream>
 # include <sstream>
 # include <vector>
+# include <stack>
 # include <math.h>
 # include <ctype.h>
 
@@ -87,6 +88,7 @@ struct Variable {
   string type ;
   string id ;
   string constant ;
+  string line ;
 };
 
 
@@ -103,9 +105,10 @@ struct FunctionVariable {
 };
 
 FunctionVariable gFunctionVariable ; // global function variable
-bool gCheck ;
+bool gIF_ELSE ;
 int gLine ;
 int gRecursive ;
+int gCompound ;
 
 class Scanner {
 private:
@@ -577,9 +580,10 @@ class Parser {
 private:
   Scanner mScanner; 
   vector <Function> mFunctionList ;
-  vector <FunctionVariable> mFunctionVariableList ;
   vector <Variable> mVariableList ;
   vector <Variable> mTempList ;
+  stack <Variable> mTemp ;
+  vector <Token> mTokenFList ; // store function declaration
   vector <Token> mTokenList ; // store token and give it to eval
 
 public:
@@ -629,8 +633,9 @@ public:
   bool IntheList( string ID ) ;
   bool IntheFunctionList( string ID ) ;
   bool IntheTempList( string ID ) ;
-  bool IntheFVariableList( string ID ) ;
-  bool HasFunctionVariable( string ID ) ;
+  bool InthegFunctionVariable( string ID ) ;
+  bool IntheStack( Token peek ) ;
+
   void Save_Definition() ;
 
   void Print_NewDefinition_Variable( string ID ) ;
@@ -640,6 +645,7 @@ public:
   void Print_NewDefinition( string ID ) ;
 
   void Sort() ;
+  void Sort_FunctionList() ;
   bool Done( Token peek ) ;
   void CleanTokenBuffer() ;
   void ErrorMessage() ;
@@ -653,7 +659,7 @@ public:
   void Print_Unrecognized( Token token ) ;
   void Print_Unexpected( Token token ) ;
   void Print_Undefined( Token token ) ;
-  void Print_Function() ;
+  void Print_Function( string ID ) ;
 }; // Parser
 
 
@@ -682,29 +688,11 @@ bool Parser::User_input() {
 
   if ( peek.type == VOID || Type_specifier( peek ) ) {
     Definition( definition1Correct ) ;
-    if ( !definition1Correct ) {
-      if ( uIsFunction ) { // clear mFunctionVariable element when occuring error
-        for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
-          if ( strcmp( mFunctionVariableList[i].function_id.c_str(),
-                       gFunctionVariable.function_id.c_str() ) == 0 ) {
-            mFunctionVariableList.erase( mFunctionVariableList.begin() + i ) ;
-          } // if
-        } // for
-      } // if
-    } // if
 
     if ( definition1Correct ) {
+      for ( int i = 0 ; i < gFunctionVariable.functionVariableList.size() ; i++ )
+        cout << "700 " << gFunctionVariable.functionVariableList[i].type << " " << gFunctionVariable.functionVariableList[i].id << " " << gFunctionVariable.functionVariableList[i].constant << endl ;
       Save_Definition() ;
-      /*
-      for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
-       cout << "642 : " << mFunctionVariableList[i].function_id << endl ;
-       for ( int j = 0 ; j < mFunctionVariableList[i].functionVariableList.size() ; j++  ) {
-         cout << mFunctionVariableList[i].functionVariableList[j].type << 
-         mFunctionVariableList[i].functionVariableList[j].id << " " 
-         << mFunctionVariableList[i].functionVariableList[j].constant << endl ;
-       } // for
-      } // for
-      */
     } // if
   } // if
   else {
@@ -714,11 +702,17 @@ bool Parser::User_input() {
     } // if
     else if ( strcmp( peek.tokenValue.c_str(), "ListVariable" ) == 0 ) {
       statementID = peek.tokenValue ;
-    } // if
+    } // else if
+    else if ( strcmp( peek.tokenValue.c_str(), "ListAllFunctions" ) == 0 ) {
+      statementID = peek.tokenValue ;
+    } // else if
+    else if ( strcmp( peek.tokenValue.c_str(), "ListFunction" ) == 0 ) {
+      statementID = peek.tokenValue ;
+    } // else if
 
     if ( statement1Correct ) {
-      Sort() ;
       if ( strcmp( statementID.c_str(), "ListAllVariables" ) == 0 ) { // need to sort and print
+        Sort() ;
         for ( int i = 0 ; i < mVariableList.size() ; i++ ) {
           printf( "%s\n", mVariableList[i].id.c_str() ) ;
         } // for
@@ -735,12 +729,25 @@ bool Parser::User_input() {
             } // else
           } // if
         } // for
-      } // if
- 
+      } // else if
+      else if ( strcmp( statementID.c_str(), "ListAllFunctions" ) == 0 ) {
+        // sort function list
+        Sort_FunctionList() ;
+        for ( int i = 0 ; i < mFunctionList.size() ; i++ ) {
+          printf( "%s()\n", mFunctionList[i].function_id.tokenValue.c_str() ) ;
+        } // for
+      } // else if
+      else if ( strcmp( statementID.c_str(), "ListFunction" ) == 0 ) {
+        for ( int i = 0 ; i < mFunctionList.size() ; i++ ) {
+          if ( strcmp( mFunctionList[i].function_id.tokenValue.c_str(), mTokenList[2].tokenValue.c_str() ) == 0 ) {
+            Print_Function( mFunctionList[i].function_id.tokenValue ) ;
+          } // if
+        } // for
+      } // else if
+
       printf( "Statement executed ...\n" ) ;
     } // if
   } // else
-
 
 
 
@@ -773,15 +780,6 @@ void Parser::Definition( bool &correct ) {
     mTokenList.push_back( token ) ; // push to buffer 
     peek = mScanner.PeekToken() ; // peek IDENT
     if ( peek.type == IDENT ) {
-      gFunctionVariable.function_id = peek.tokenValue ; // assign ID give it to gFuncVariable
-      if ( IntheFunctionList( gFunctionVariable.function_id ) ) {
-        for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
-          if ( strcmp( gFunctionVariable.function_id.c_str(),
-                       mFunctionVariableList[i].function_id.c_str() ) == 0 ) {
-            mFunctionVariableList[i].functionVariableList.clear() ;
-          } // if
-        } // for
-      } // if
 
 
       token = mScanner.GetToken() ; // get ident
@@ -881,14 +879,17 @@ void Parser::Rest_of_declarators( bool &correct ) {
   if ( peek.type == LB ) {
     token = mScanner.GetToken() ; // get '['
     mTokenList.push_back( token ) ;
+    mTokenFList.push_back( token ) ;
     peek = mScanner.PeekToken() ;
     if ( peek.type == CONSTANT ) {
       token = mScanner.GetToken() ; // get Constant
       mTokenList.push_back( token ) ;
+      mTokenFList.push_back( token ) ;
       peek = mScanner.PeekToken() ;
       if ( peek.type == RB ) {
         token = mScanner.GetToken() ;
         mTokenList.push_back( token ) ;
+        mTokenFList.push_back( token ) ;
       } // if
       else {
         // error 1.Unrecognized 2. Unexpected
@@ -915,37 +916,7 @@ void Parser::Rest_of_declarators( bool &correct ) {
         correct = true ;
         token = mScanner.GetToken() ;
         mTokenList.push_back( token ) ; // push to buffer
-        for ( int i = 0 ; i < mTokenList.size() ; i++ ) {
-          if ( Type_specifier( mTokenList[i] ) ) {
-            variable.type = mTokenList[i].tokenValue ;
-          } // if
-          else if ( mTokenList[i].type == IDENT && 
-                    strcmp( mTokenList[i].tokenValue.c_str(),
-                            gFunctionVariable.function_id.c_str() ) == 1 ) {
-            variable.id = mTokenList[i].tokenValue ;
-            if ( i + 2 < mTokenList.size() && mTokenList[i+2].type == CONSTANT ) {
-              variable.constant = mTokenList[i+2].tokenValue ;
-              gFunctionVariable.functionVariableList.push_back( variable ) ;
-              variable.constant = "" ;
-            } // if
-            else {
-              gFunctionVariable.functionVariableList.push_back( variable ) ;
-            } // else
-          } // if
-        } // for
-
-        variable.type = "" ;
-        variable.id = "" ;
-        variable.constant = "" ;
-        if ( uIsFunction ) {
-          if ( !IntheFVariableList( gFunctionVariable.function_id ) ) {
-            mFunctionVariableList.push_back( gFunctionVariable ) ;
-          } // if
-        } // if
-        else {
-          gFunctionVariable.functionVariableList.clear() ;
-        } // else
-
+        mTokenFList.push_back( token ) ;
         return ;
       } // if
 
@@ -957,23 +928,28 @@ void Parser::Rest_of_declarators( bool &correct ) {
     correct = true ;
     if ( peek.type == COMMA ) {
       token = mScanner.GetToken() ; // get ','
-      mTokenList.push_back( token ) ; // push to buffer 
+      mTokenList.push_back( token ) ; // push to buffer
+      mTokenFList.push_back( token ) ;
       peek = mScanner.PeekToken() ;
       if ( peek.type == IDENT ) {
         token = mScanner.GetToken() ; // get Identifier
-        mTokenList.push_back( token ) ; // push to token list buffer 
+        mTokenList.push_back( token ) ; // push to token list buffer
+        mTokenFList.push_back( token ) ;
         peek = mScanner.PeekToken() ; // peek '['
         if ( peek.type == LB ) {
           token = mScanner.GetToken() ; // get '['
           mTokenList.push_back( token ) ;
+          mTokenFList.push_back( token ) ;
           peek = mScanner.PeekToken() ; // peek Constant
           if ( peek.type == CONSTANT ) {
             token = mScanner.GetToken() ; // get Constant
             mTokenList.push_back( token ) ;
+            mTokenFList.push_back( token ) ;
             peek = mScanner.PeekToken() ; // peek ']'
             if ( peek.type == RB ) {
               token = mScanner.GetToken() ; // get ']' [Constant] OK
               mTokenList.push_back( token ) ;
+              mTokenFList.push_back( token ) ;
             } // if
             else {
               correct = false ;
@@ -991,33 +967,7 @@ void Parser::Rest_of_declarators( bool &correct ) {
           correct = true ;
           token = mScanner.GetToken() ; // get ';'
           mTokenList.push_back( token ) ;
-          Variable variable ;
-          for ( int i = 0 ; i < mTokenList.size() ; i++ ) {
-            // get definition of variable in the function
-            if ( uIsFunction && Type_specifier( mTokenList[i] ) ) {
-              variable.type = mTokenList[i].tokenValue ;
-            } // if
-            else if ( uIsFunction && mTokenList[i].type == IDENT ) {
-              variable.id = mTokenList[i].tokenValue ;
-              if ( uIsFunction && i + 2 < mTokenList.size() && mTokenList[i+2].type == CONSTANT ) {
-                variable.constant = mTokenList[i+2].tokenValue ;
-                gFunctionVariable.functionVariableList.push_back( variable ) ; 
-                // push it to global function variable
-                variable.constant = "" ;
-              } // if
-              else {
-                if ( uIsFunction && variable.type != "" ) { // push variable not function id
-                  gFunctionVariable.functionVariableList.push_back( variable ) ; 
-                  // push it to global function variable
-                } // if
-              } // else
-
-              if ( !IntheFVariableList( gFunctionVariable.function_id ) ) {
-                mFunctionVariableList.push_back( gFunctionVariable ) ;
-              } // if
-            } // else if
-          } // for
-
+          mTokenFList.push_back( token ) ;
           return ;
         } // else if
       } // if
@@ -1067,6 +1017,11 @@ void Parser::Function_definition_without_ID( bool &correct ) {
     Compound_statement( c_s ) ;
     if ( c_s ) {
       mTempList.clear() ; // clear temp variable list
+      string record_line = mTemp.top().line ;
+      for ( int i = 0 ; i < mTemp.size() ; i++ ) {
+        mTemp.pop() ;
+      } // for
+
       correct = true ;
       return ;
     } // if
@@ -1087,8 +1042,10 @@ void Parser::Formal_parameter_list( bool &correct ) {
   // { ',' type_specifier [ '&' ] Identifier [ '[' Constant ']' ] }
   Token token, peek ;
   peek = mScanner.PeekToken() ; // peek token
+  Variable variable ;
   if ( Type_specifier( peek ) ) {
     token = mScanner.GetToken() ;
+    variable.type = token.tokenValue ; // give type
     mTokenList.push_back( token ) ; // push to buffer 
     peek = mScanner.PeekToken() ;
     if ( peek.type == AND_OP ) {
@@ -1097,6 +1054,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
       peek = mScanner.PeekToken() ; // peek Ident
       if ( peek.type == IDENT ) {
         token = mScanner.GetToken() ;
+        variable.id == token.tokenValue ; // give ident
         mTokenList.push_back( token ) ; // push to buffer 
       } // if
       else {
@@ -1107,6 +1065,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
     } // if
     else if ( peek.type == IDENT ) {
       token = mScanner.GetToken() ; // get Identifier
+      variable.id = token.tokenValue ;
       mTokenList.push_back( token ) ; // push to buffer 
     } // else if
     else {
@@ -1122,6 +1081,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
       peek = mScanner.PeekToken() ;
       if ( peek.type == CONSTANT ) {
         token = mScanner.GetToken() ; // get Constant
+        variable.constant = token.tokenValue ;
         mTokenList.push_back( token ) ; // push to buffer 
         peek = mScanner.PeekToken() ;
         if ( peek.type == RB ) {
@@ -1142,6 +1102,9 @@ void Parser::Formal_parameter_list( bool &correct ) {
     } // if
 
 
+    gFunctionVariable.functionVariableList.push_back( variable );
+    variable.constant = "" ;
+
     do {
 
       peek = mScanner.PeekToken() ;
@@ -1155,6 +1118,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
       peek = mScanner.PeekToken() ;
       if ( Type_specifier( peek ) ) {
         token = mScanner.GetToken() ;
+        variable.type = token.tokenValue ;
         mTokenList.push_back( token ) ; // push to buffer 
         peek = mScanner.PeekToken() ;
         if ( peek.type == AND_OP ) {
@@ -1163,6 +1127,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
           peek = mScanner.PeekToken() ; // peek Ident
           if ( peek.type == IDENT ) {
             token = mScanner.GetToken() ;
+            variable.id = token.tokenValue ; // give id
             mTokenList.push_back( token ) ; // push to buffer 
           } // if
           else {
@@ -1173,6 +1138,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
         } // if
         else  if ( peek.type == IDENT ) {
           token = mScanner.GetToken() ; // get Identifier
+          variable.id = token.tokenValue ; // give id
           mTokenList.push_back( token ) ; // push to buffer 
         } // else if
         else {
@@ -1188,6 +1154,7 @@ void Parser::Formal_parameter_list( bool &correct ) {
           peek = mScanner.PeekToken() ;
           if ( peek.type == CONSTANT ) {
             token = mScanner.GetToken() ; // get Constant
+            variable.constant = token.tokenValue ; // give constant
             mTokenList.push_back( token ) ; // push to buffer 
             peek = mScanner.PeekToken() ;
             if ( peek.type == RB ) {
@@ -1212,6 +1179,9 @@ void Parser::Formal_parameter_list( bool &correct ) {
         ErrorMessage() ;
         return ;
       } // else
+
+      gFunctionVariable.functionVariableList.push_back( variable ) ;
+      variable.constant = "" ;
     } while ( 1 ) ;
 
   } // if
@@ -1238,32 +1208,6 @@ void Parser::Compound_statement( bool &correct ) {
     return ;
   } // else
 
-  peek = mScanner.PeekToken() ;
-  if ( peek.type == RCB ) { // { empty }
-    Variable variable ;
- 
-    for ( int i = 0 ; i < mTokenList.size() ; i++ ) {
-      if ( Type_specifier( mTokenList[i] ) ) {
-        variable.type = mTokenList[i].tokenValue ;
-      } // if
-      else if ( mTokenList[i].type == IDENT ) {
-        variable.id = mTokenList[i].tokenValue ;
-        if ( i + 2 < mTokenList.size() && mTokenList[i+2].type == CONSTANT ) {
-          variable.constant = mTokenList[i+2].tokenValue ;
-          gFunctionVariable.functionVariableList.push_back( variable ) ;
-          variable.constant = "" ;
-        } // if
-        else {
-          gFunctionVariable.functionVariableList.push_back( variable ) ;
-        } // else
-      } // if
-    } // for
-
-    if ( !IntheFVariableList( gFunctionVariable.function_id ) ) {
-      mFunctionVariableList.push_back( gFunctionVariable ) ;
-    } // if
-  } // if
-
   do {
     peek = mScanner.PeekToken() ;
 
@@ -1278,6 +1222,11 @@ void Parser::Compound_statement( bool &correct ) {
       Declaration( declaration1Correct ) ;
       if ( !declaration1Correct ) {
         mTempList.clear() ; // because error then all drop it
+        string record_line = mTemp.top().line ;
+        for ( int i = 0 ; i < mTemp.size() ; i++ ) {
+          mTemp.pop() ;
+        } // for
+
         correct = false ;
         return ;
       } // if
@@ -1300,33 +1249,48 @@ void Parser::Declaration( bool &correct ) {
   peek = mScanner.PeekToken() ;
   if ( Type_specifier( peek ) ) {
     token = mScanner.GetToken() ; // get type_specfier
+    variable.type = token.tokenValue ;
     mTokenList.push_back( token ) ; // push to buffer
+    mTokenFList.push_back( token ) ;
     peek = mScanner.PeekToken() ;
     if ( peek.type == IDENT ) {
       token = mScanner.GetToken() ; // get Ident
       mTokenList.push_back( token ) ; // push to buffer
+      mTokenFList.push_back( token ) ;
       Rest_of_declarators( r_o_d ) ;
       if ( r_o_d ) {
-        for ( int i = 0 ; i < mTokenList.size() ; i++ ) {
-          if ( Type_specifier( mTokenList[i] ) ) {
-            variable.type = mTokenList[i].tokenValue ;
-          } // if
-          else if ( mTokenList[i].type == IDENT ) {
-            variable.id = mTokenList[i].tokenValue ;
-            if ( i + 2 < mTokenList.size() && mTokenList[i+2].type == CONSTANT 
-                 && mTokenList[i+1].type == LB ) {
-              variable.constant = mTokenList[i+2].tokenValue ;
-              mTempList.push_back( variable ) ;
-              variable.constant = "" ;
-            } // if
-            else {
-              if ( mTokenList[i+1].type == COMMA || mTokenList[i+1].type == SEMICOLON )
+        for ( int i = 0 ; i < mTokenFList.size() ; i++ ) {
+          if ( mTokenFList[i].type == IDENT ) {
+            variable.id = mTokenFList[i].tokenValue ;
+            if ( mTokenFList[i+1].type == COMMA || mTokenFList[i+1].type == SEMICOLON ) {
+              if ( !gIF_ELSE ) {
+                gFunctionVariable.functionVariableList.push_back( variable ) ;
+              } // if
+              else {
+                variable.line = mTokenFList[i].line ;
                 mTempList.push_back( variable ) ;
-            } // else
-          } // else if
+                mTemp.push( variable ) ;
+                variable.line = "" ;
+              } // else
+            } // if
+            else if ( mTokenFList[i+1].type == LB ) {
+              variable.constant = mTokenFList[i+2].tokenValue ;
+              if ( !gIF_ELSE ) {
+                gFunctionVariable.functionVariableList.push_back( variable ) ;
+              } // if
+              else {
+                variable.line = mTokenFList[i].line ;
+                mTempList.push_back( variable ) ;
+                mTemp.push( variable ) ;
+                variable.line = "" ;
+              } // else
+
+              variable.constant = "" ;
+            } // else if
+          } // if 
         } // for
 
-
+        mTokenFList.clear() ;
         correct = true ;
         return ;
       } // if
@@ -1420,6 +1384,8 @@ void Parser::Statement( bool &correct ) {
     } // else
   } // else if
   else if ( peek.type == IF ) {
+    gCompound++ ;
+    gIF_ELSE = true ;
     token = mScanner.GetToken() ; // get IF
     mTokenList.push_back( token ) ; // push to buffer
     peek = mScanner.PeekToken() ;
@@ -1442,40 +1408,48 @@ void Parser::Statement( bool &correct ) {
               Statement( statement1Correct ) ;
               if ( !statement1Correct ) {
                 correct = false ;
+                gIF_ELSE = false ;
                 return ;
               } // if
               else {
                 correct = true ;
+                gIF_ELSE = false ;
                 return ;
               } // else
             } // if
             else {
+              gIF_ELSE = false ;
               return ;
             } // else
           } // if
           else {
+            gIF_ELSE = false ;
             correct = false ;
             return ;
           } // else 
         } // if
         else {
+          gIF_ELSE = false ;
           correct = false ;
           ErrorMessage() ;
           return ;
         } // else
       } // if
       else {
+        gIF_ELSE = false ;
         correct = false ;
         return ;
       } // else
     } // if
     else {
+      gIF_ELSE = false ;
       correct = false ;
       ErrorMessage() ;
       return ;
-    } // else 
+    } // else
   } // else if
   else if ( peek.type == WHILE ) {
+    gIF_ELSE = true ;
     token = mScanner.GetToken() ; // get WHILE
     mTokenList.push_back( token ) ; // push to buffer
     peek = mScanner.PeekToken() ; // peek '('
@@ -1491,32 +1465,38 @@ void Parser::Statement( bool &correct ) {
           Statement( statement1Correct ) ;
           if ( statement1Correct ) {
             correct = true ;
+            gIF_ELSE = false ;
             return ;
           } // if
           else {
             correct = false ;
+            gIF_ELSE = false ;
             return ;
           } // else
         } // if
         else {
           correct = false ;
+          gIF_ELSE = false ;
           ErrorMessage() ;
           return ;
         } // else
       } // if
       else {
         correct = false ;
+        gIF_ELSE = false ;
         return ;
       } // else
     } // if
     else {
       correct = false ;
+      gIF_ELSE = false ;
       ErrorMessage() ;
       return ;
     } // else
   } // else if
   else if ( peek.type == DO ) {
     // DO statement WHILE '(' expression ')' ';'
+    gIF_ELSE = true ;
     token = mScanner.GetToken() ; // get token DO
     mTokenList.push_back( token ) ; // push to buffer
     Statement( statement1Correct ) ;
@@ -1540,27 +1520,32 @@ void Parser::Statement( bool &correct ) {
                 token = mScanner.GetToken() ; // get ';'
                 mTokenList.push_back( token ) ; // push to buffer
                 correct = true ;
+                gIF_ELSE = false ;
                 return ;
               } // if
               else {
                 correct = false ;
+                gIF_ELSE = false ;
                 ErrorMessage() ;
                 return ;
               } // else
             } // if
             else {
               correct = false ;
+              gIF_ELSE = false ;
               ErrorMessage() ;
               return ;
             } // else
           } // if
           else {
             correct = false ;
+            gIF_ELSE = false ;
             return ;
           } // else
         } // if
         else {
           correct = false ;
+          gIF_ELSE = false ;
           ErrorMessage() ;
           return ;
         } // else
@@ -1568,25 +1553,31 @@ void Parser::Statement( bool &correct ) {
       else {
         // error
         correct = false ;
+        gIF_ELSE = false ;
         ErrorMessage() ;
         return ;
       } // else 
     } // if
     else {
       correct = false ;
+      gIF_ELSE = false ;
       return ;
     } // else
   } // else if
   else {
     // compound_statement
+    gIF_ELSE = true ;
     Compound_statement( c_s1Correct ) ;
     if ( c_s1Correct ) {
       mTempList.clear() ; // clear temp variable list
+
       correct = true ;
+      gIF_ELSE = false ;
       return ;
     } // if
     else {
       correct = false ;
+      gIF_ELSE = false ;
       return ;
     } // else
   } // else
@@ -1631,9 +1622,11 @@ void Parser::Basic_expression( bool &correct ) {
   peek = mScanner.PeekToken() ; // peek token to determine go which ways
 
   if ( peek.type == IDENT ) {
+
     if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
       if ( uIsFunction ) {
-        if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
+        if ( !IntheStack( peek ) && !InthegFunctionVariable( peek.tokenValue ) 
+             && !IntheFunctionList( peek.tokenValue ) ) {
           Undefined() ;
           correct = false ;
           return ;
@@ -1641,7 +1634,8 @@ void Parser::Basic_expression( bool &correct ) {
 
       } // if
       else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
-                && !IntheTempList( peek.tokenValue ) ) { // Undefined
+                && !IntheStack( peek ) && !IntheFunctionList( peek.tokenValue ) ) { // Undefined
+        cout << "1611" ;
         Undefined() ;
         correct = false ;
         return ;
@@ -1667,7 +1661,8 @@ void Parser::Basic_expression( bool &correct ) {
     if ( peek.type == IDENT ) {
       if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
         if ( uIsFunction ) {
-          if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
+          if ( !IntheStack( peek ) && !InthegFunctionVariable( peek.tokenValue ) 
+               && !IntheFunctionList( peek.tokenValue ) ) {
             Undefined() ;
             correct = false ;
             return ;
@@ -1675,7 +1670,7 @@ void Parser::Basic_expression( bool &correct ) {
 
         } // if
         else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
-                  && !IntheTempList( peek.tokenValue ) ) { // Undefined
+                  && !IntheStack( peek ) && !IntheFunctionList( peek.tokenValue ) ) { // Undefined
           Undefined() ;
           correct = false ;
           return ;
@@ -1703,30 +1698,14 @@ void Parser::Basic_expression( bool &correct ) {
   else if ( Sign( peek ) ) {
     token = mScanner.GetToken() ; // get sign
     mTokenList.push_back( token ) ; // push to token buffer
-    peek = mScanner.PeekToken() ; // peek sign
-    if ( peek.type == CONSTANT ) { // ( Constant | '(' expression ')' ) romce_and_romloe
-      token = mScanner.GetToken() ; // get Constanat or '('
-      mTokenList.push_back( token ) ;
-      if ( token.type == LEFT_PAREN ) {
-        Expression( expression1Correct ) ;
-        if ( expression1Correct ) {
-          peek = mScanner.PeekToken() ; // peek ')'
-          if ( peek.type == RIGHT_PAREN ) {
-            token = mScanner.GetToken() ; // get ')'
-            mTokenList.push_back( token ) ; // push to token buffer
-          } // if
-          else {
-            correct = false ;
-            ErrorMessage() ;
-            return ;
-          } // else
-        } // if
-        else {
-          correct = false ;
-          return ;
-        } // else
-      } // if
+    while ( Sign( peek ) ) {
+      token = mScanner.GetToken() ;
+      mTokenList.push_back( token ) ; // push to token buffer
+      peek = mScanner.PeekToken() ;
+    } // while()
 
+    Signed_unary_exp( signed_unary_exp1Correct ) ;
+    if ( signed_unary_exp1Correct ) {
       Romce_and_romloe( romce_and_romloe1Correct ) ;
       if ( romce_and_romloe1Correct ) {
         correct = true ;
@@ -1738,28 +1717,8 @@ void Parser::Basic_expression( bool &correct ) {
       } // else
     } // if
     else {
-      while ( !Sign( peek ) ) {
-        token = mScanner.GetToken() ; // get sign
-        mTokenList.push_back( token ) ; // push to token buffer
-        peek = mScanner.PeekToken() ;
-      } // while()
-
-      Signed_unary_exp( signed_unary_exp1Correct ) ;
-      if ( signed_unary_exp1Correct ) {
-        Romce_and_romloe( romce_and_romloe1Correct ) ;
-        if ( romce_and_romloe1Correct ) {
-          correct = true ;
-          return ;
-        } // if
-        else {
-          correct = false ;
-          return ;
-        } // else
-      } // if
-      else {
-        correct = false ;
-        return ;
-      } // else
+      correct = false ;
+      return ;
     } // else
   } // else if
   else if ( peek.type == CONSTANT || peek.type == LEFT_PAREN ) {
@@ -1831,34 +1790,48 @@ void Parser::Rest_of_Identifier_started_basic_exp( bool &correct ) {
     } // else
   } // if
 
-  if ( Assignment_operator( peek ) ) {
-    token = mScanner.GetToken() ; // get Assignment op
-    mTokenList.push_back( token ) ; // push to token buffer
+  if ( Assignment_operator( peek ) || peek.type == PP || peek.type == MM || peek.type != LEFT_PAREN ) {
+    if ( Assignment_operator( peek ) ) {
+      token = mScanner.GetToken() ; // get Assignment op
+      mTokenList.push_back( token ) ; // push to token buffer
 
-    Basic_expression( b_expression1Correct ) ;
-    if ( b_expression1Correct ) {
-      correct = true ;
-      return ;
+      Basic_expression( b_expression1Correct ) ;
+      if ( b_expression1Correct ) {
+        correct = true ;
+        return ;
+      } // if
+      else {
+        correct = false ;
+        return ;
+      } // else
     } // if
-    else {
-      correct = false ;
-      return ;
-    } // else
+    else if ( peek.type == PP || peek.type == MM ) {
+      token = mScanner.GetToken() ; // get PP or MM
+      mTokenList.push_back( token ) ; // push to token buffer
+      Romce_and_romloe( romce_and_romloe1Correct ) ;
+      if ( romce_and_romloe1Correct ) {
+        correct = true ;
+        return ;
+      } // if
+      else {
+        correct = false ;
+        return ;
+      } // else
+    } // else if
+    else if ( peek.type != LEFT_PAREN ) {
+      Romce_and_romloe( romce_and_romloe1Correct ) ;
+      if ( romce_and_romloe1Correct ) {
+        correct = true ;
+        return ;
+      } // if
+      else {
+        correct = false ;
+        return ;
+      } // else
+    } // else if
   } // if
-  else if ( peek.type == PP || peek.type == MM ) {
-    token = mScanner.GetToken() ; // get PP or MM
-    mTokenList.push_back( token ) ; // push to token buffer
-    Romce_and_romloe( romce_and_romloe1Correct ) ;
-    if ( romce_and_romloe1Correct ) {
-      correct = true ;
-      return ;
-    } // if
-    else {
-      correct = false ;
-      return ;
-    } // else
-  } // else if
-  else if ( peek.type == LEFT_PAREN ) {
+
+  if ( peek.type == LEFT_PAREN ) {
     token = mScanner.GetToken() ; // get '('
     mTokenList.push_back( token ) ; // push to token buffer
     peek = mScanner.PeekToken() ; // peek ')'
@@ -1903,17 +1876,10 @@ void Parser::Rest_of_Identifier_started_basic_exp( bool &correct ) {
         return ;
       } // else
     } // else
-  } // else if
+  } // if
   else {
-    Romce_and_romloe( romce_and_romloe1Correct ) ;
-    if ( romce_and_romloe1Correct ) {
-      correct = true ;
-      return ;
-    } // if
-    else {
-      correct = false ;
-      return ;
-    } // else
+    correct = false ;
+    return ;
   } // else
 } // Parser::Rest_of_Identifier_started_basic_exp()
 
@@ -2613,7 +2579,8 @@ void Parser::Unary_exp( bool &correct ) {
     if ( peek.type == IDENT ) {
       if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
         if ( uIsFunction ) {
-          if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
+          if ( !IntheStack( peek ) && !InthegFunctionVariable( peek.tokenValue ) 
+               && !IntheFunctionList( peek.tokenValue ) ) {
             Undefined() ;
             correct = false ;
             return ;
@@ -2621,7 +2588,7 @@ void Parser::Unary_exp( bool &correct ) {
 
         } // if
         else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
-                  && !IntheTempList( peek.tokenValue ) ) { // Undefined
+                  && !IntheStack( peek ) && !IntheFunctionList( peek.tokenValue ) ) { // Undefined
           Undefined() ;
           correct = false ;
           return ;
@@ -2686,7 +2653,8 @@ void Parser::Signed_unary_exp( bool &correct ) {
   if ( peek.type == IDENT ) {
     if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
       if ( uIsFunction ) {
-        if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
+        if ( !IntheStack( peek ) && !InthegFunctionVariable( peek.tokenValue ) 
+             && !IntheFunctionList( peek.tokenValue ) ) {
           Undefined() ;
           correct = false ;
           return ;
@@ -2694,7 +2662,7 @@ void Parser::Signed_unary_exp( bool &correct ) {
 
       } // if
       else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
-                && !IntheTempList( peek.tokenValue ) ) { // Undefined
+                && !IntheStack( peek ) && !IntheFunctionList( peek.tokenValue ) ) { // Undefined
         Undefined() ;
         correct = false ;
         return ;
@@ -2827,7 +2795,8 @@ void Parser::Unsigned_unary_exp( bool &correct ) {
   if ( peek.type == IDENT ) {
     if ( !IsListFunction( peek ) && !IsCinCout( peek ) ) {
       if ( uIsFunction ) {
-        if ( !IntheTempList( peek.tokenValue ) && !HasFunctionVariable( peek.tokenValue ) ) {
+        if ( !IntheStack( peek ) && !InthegFunctionVariable( peek.tokenValue ) 
+             && !IntheFunctionList( peek.tokenValue ) ) {
           Undefined() ;
           correct = false ;
           return ;
@@ -2835,7 +2804,7 @@ void Parser::Unsigned_unary_exp( bool &correct ) {
 
       } // if
       else if ( !uIsFunction && !IntheList( peek.tokenValue ) 
-                && !IntheTempList( peek.tokenValue ) ) { // Undefined
+                && !IntheStack( peek ) && !IntheFunctionList( peek.tokenValue ) ) { // Undefined
         Undefined() ;
         correct = false ;
         return ;
@@ -3020,15 +2989,27 @@ bool Parser::IntheTempList( string ID ) {
   return false ;
 } // Parser::IntheTempList()
 
-bool Parser::IntheFVariableList( string ID ) {
-  for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
-    if ( strcmp( mFunctionVariableList[i].function_id.c_str(), ID.c_str() ) == 0 ) {
+bool Parser::InthegFunctionVariable( string ID ) {
+  for ( int i = 0 ; i < gFunctionVariable.functionVariableList.size() ; i++ ) {
+    if ( strcmp( gFunctionVariable.functionVariableList[i].id.c_str(), ID.c_str() ) == 0 ) {
       return true ;
     } // if
   } // for
 
   return false ;
-} // Parser::IntheFVariableList()
+} // Parser::InthegFunctionVariable()
+
+bool Parser::IntheStack( Token peek ) {
+  stringstream ss ;
+  int line ;
+  ss << mTemp.top().line ;
+  ss >> line ;
+
+  if ( line < peek.line )
+    return true ;
+  else
+    return false ;
+} // Parser::IntheStack()
 
 void Parser::Save_Definition() {
   if ( uIsVariable && !uIsFunction ) { // Variable
@@ -3141,14 +3122,6 @@ void Parser::Save_Definition() {
         } // if
       } // for
 
-      // delete new definition void Fun() { int a ;} void Fun(){int a, b ;} 
-
-      for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
-        if ( strcmp( function.function_id.tokenValue.c_str(), 
-                     mFunctionVariableList[i].function_id.c_str() ) == 0 ) {
-          mFunctionVariableList[i].functionVariableList = gFunctionVariable.functionVariableList ;
-        } // if
-      } // for
     } // else
 
     cout << endl << "Function Type and ID : " << function.type.tokenValue
@@ -3204,6 +3177,21 @@ void Parser::Sort() {
   } // for
 } // Parser::Sort()
 
+void Parser::Sort_FunctionList() {
+  int i, j ;
+  int n = mFunctionList.size() ;
+  Function temp ;
+  for ( i = 0 ; i < n - 1 ; i++ ) {
+    for ( j = 0 ; j < n - i - 1 ; j ++ ) {
+      if ( mFunctionList[j].function_id.tokenValue > mFunctionList[j+1].function_id.tokenValue ) {
+        temp = mFunctionList[j+1] ;
+        mFunctionList[j+1] = mFunctionList[j] ;
+        mFunctionList[j] = temp ;
+      } // if
+    } // for
+  } // for
+} // Parser::Sort_FunctionList()
+
 bool Parser::Done( Token peek ) {
   Token token ;
   if ( strcmp( peek.tokenValue.c_str(), "Done" ) == 0 ) {
@@ -3237,6 +3225,7 @@ bool Parser::Done( Token peek ) {
 
 void Parser::CleanTokenBuffer() {
   mTokenList.clear() ;
+  mTokenFList.clear() ;
   gFunctionVariable.function_id = "" ;
   gFunctionVariable.functionVariableList.clear() ;
 } // Parser::CleanTokenBuffer()
@@ -3273,20 +3262,6 @@ bool Parser::IsUnrecognized( string& token ) {
   return false ;
 } // Parser::IsUnrecognized()
 
-bool Parser::HasFunctionVariable( string ID ) {
-  for ( int i = 0 ; i < mFunctionVariableList.size() ; i++ ) {
-    if ( strcmp( gFunctionVariable.function_id.c_str(),
-                 mFunctionVariableList[i].function_id.c_str() ) == 0 ) {
-      for ( int j = 0 ; j < mFunctionVariableList[i].functionVariableList.size() ; j++ ) {
-        if ( strcmp( ID.c_str(), mFunctionVariableList[i].functionVariableList[j].id.c_str() ) == 0 ) {
-          return true ;
-        } // if
-      } // for
-    } // if
-  } // for
-
-  return false ;
-} // Parser::HasFunctionVariable()
 
 bool Parser::IsListFunction( Token peek ) {
   if ( strcmp( peek.tokenValue.c_str(), "ListAllVariables" ) == 0 ) {
@@ -3348,7 +3323,57 @@ void Parser::Print_Undefined( Token token ) {
   printf( "Line %d : %s\n", token.line, output.c_str() ) ; // c++ string to c string
 } // Parser::Print_Undefined()
 
-void Parser::Print_Function() {
+void Parser::Print_Function( string ID ) {
+  cout << ID << endl ;
+  int pos = 0 ;
+  for ( int i = 0 ; i < mFunctionList.size() ; i++ ) {
+    if ( strcmp( ID.c_str(), mFunctionList[i].function_id.tokenValue.c_str() ) == 0 ) {
+      pos = i ;
+    } // if
+  } // for
+   
+
+  // print type & id & parameters
+  printf( "%s %s ", mFunctionList[pos].type.tokenValue.c_str(), 
+                    mFunctionList[pos].function_id.tokenValue.c_str() ) ;
+  printf( "( " ) ;
+
+  for ( int i = 0 ; i < mFunctionList[pos].parameter.size() ; i++ ) {
+    printf( "%s %s", mFunctionList[pos].parameter[i].type.c_str(), 
+            mFunctionList[pos].parameter[i].id.c_str() ) ;
+    if ( strcmp( mFunctionList[pos].parameter[i].constant.c_str(), "" ) == 1 )
+      printf( "%s", mFunctionList[pos].parameter[i].constant.c_str() ) ;
+
+    if ( i + 1 < mFunctionList[pos].parameter.size() ) {
+      printf( ", " ) ;
+    } // if
+  } // for
+
+  printf( " ) {\n" ) ;
+  // print content
+  int typeset = 1 ;
+  bool set = false ;
+  for ( int i = 1 ; i < mFunctionList[pos].statement.size() - 1 ; i++ ) {
+    if ( mFunctionList[pos].statement[i].type == LCB ) {
+      typeset++ ;
+    } // if
+    else if ( mFunctionList[pos].statement[i].type == SEMICOLON ) {
+      printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      set = false ;
+    } // if
+    else {
+      if ( !set ) {
+        int whitespace = typeset * 2 ;
+        for ( int j = 0 ; j < whitespace ; j++ )
+          printf( " " ) ;
+        set = true ;
+      } // if
+
+      printf ( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+    } // else
+  } // for
+
+  printf( "} \n" ) ;
 } // Parser::Print_Function()
 
 int main() {
