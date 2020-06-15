@@ -5,7 +5,6 @@
 # include <iostream>
 # include <sstream>
 # include <vector>
-# include <stack>
 # include <math.h>
 # include <ctype.h>
 
@@ -90,6 +89,7 @@ struct Variable {
   string constant ;
   string line ;
   int compound ;
+  string and_op ;
 };
 
 
@@ -119,10 +119,7 @@ public:
   Scanner() ;
   Token PeekToken() ;
   Token GetToken() ;
-  void ModifyLine() ;
   void InitializeLine() ;
-  void ModifyPeekLine() ;
-  void PrintLine() ;
 }; // Scanner
 
 Scanner::Scanner() {
@@ -130,20 +127,6 @@ Scanner::Scanner() {
   mLine = 1 ;
   gLine = 1 ;
 } // Scanner::Scanner()
-
-void Scanner::PrintLine() {
-  cout << "mLine : " << mLine << endl ;
-} // Scanner::PrintLine()
-
-void Scanner::ModifyLine() {
-  mBuf_token.line = gRecursive ;
-} // Scanner::ModifyLine()
-
-void Scanner::ModifyPeekLine() {
-  // set it to 1
-  mBuf_token.line = gLine ;
-} // Scanner::ModifyPeekLine()
-
 
 void Scanner::InitializeLine() {
   mLine = 1 ;
@@ -3126,13 +3109,29 @@ void Parser::Save_Definition() {
       } // if
       else if ( !hasParameter && Type_specifier( mTokenList[i] ) ) {
         parameter.type = mTokenList[i].tokenValue ;
-        parameter.id = mTokenList[i+1].tokenValue ;
+        if ( mTokenList[i+1].type == AND_OP ) {
+          parameter.and_op = '&' ;
+          parameter.id = mTokenList[i+2].tokenValue ;
+          if ( mTokenList[i+3].type == LB ) {
+            parameter.constant = mTokenList[i+4].tokenValue ;
+          } // if
+        } // if
+        else
+          parameter.id = mTokenList[i+1].tokenValue ;
+
         if ( mTokenList[i+2].type == LB ) {
           parameter.constant = mTokenList[i+3].tokenValue ;
         } // if
 
         function.parameter.push_back( parameter ) ;
       } // if
+      else if ( !hasParameter && mTokenList[i].type == AND_OP ) {
+        parameter.and_op = '&' ;
+      } // else if
+      else if ( !hasParameter && mTokenList[i].type == VOID ) {
+        parameter.type = "void" ;
+        function.parameter.push_back( parameter ) ;
+      } // else if
       else if ( !hasParameter && mTokenList[i].type == LCB ) {
         function.statement.push_back( mTokenList[i] ) ;
         pos_FisrstLCB = i ;
@@ -3356,91 +3355,205 @@ void Parser::Print_Function( string ID ) {
   // print type & id & parameters
   printf( "%s %s", mFunctionList[pos].type.tokenValue.c_str(), 
                     mFunctionList[pos].function_id.tokenValue.c_str() ) ;
-  printf( "( " ) ;
+  printf( "(" ) ;
 
   for ( int i = 0 ; i < mFunctionList[pos].parameter.size() ; i++ ) {
-    printf( "%s %s", mFunctionList[pos].parameter[i].type.c_str(), 
-            mFunctionList[pos].parameter[i].id.c_str() ) ;
-    if ( strcmp( mFunctionList[pos].parameter[i].constant.c_str(), "" ) != 0 ) {
-      printf( "[ %s ]", mFunctionList[pos].parameter[i].constant.c_str() ) ;
+    if ( strcmp( mFunctionList[pos].parameter[i].type.c_str(), "void" ) == 0 ) {
+      printf( " %s ", mFunctionList[pos].parameter[i].type.c_str() ) ;
     } // if
+    else {
+      if ( strcmp( mFunctionList[pos].parameter[i].and_op.c_str(), "&" ) == 0 ) {
+        printf( " %s & %s", mFunctionList[pos].parameter[i].type.c_str(), 
+                mFunctionList[pos].parameter[i].id.c_str() ) ;
+      } // if
+      else
+        printf( " %s %s", mFunctionList[pos].parameter[i].type.c_str(), 
+                mFunctionList[pos].parameter[i].id.c_str() ) ;
+      if ( strcmp( mFunctionList[pos].parameter[i].constant.c_str(), "" ) != 0 ) {
+        printf( "[ %s ]", mFunctionList[pos].parameter[i].constant.c_str() ) ;
+      } // if
 
-    if ( i + 1 < mFunctionList[pos].parameter.size() ) {
-      printf( ", " ) ;
-    } // if
+      if ( i + 1 < mFunctionList[pos].parameter.size() ) {
+        printf( "," ) ;
+      } // if
+      else {
+        printf( " " ) ;
+      } // else
+    } // else
   } // for
 
-  printf( " ) {\n" ) ;
+  printf( ") {\n" ) ;
   // print content
   int typeset = 1 ;
-  // int special_case = 0 ; // ( else do )
-  int do_whileOne = 0 ;
-  for ( int j = 0 ; j < typeset * 2 ; j++ )
-    printf( " " ) ;
+  int oneline_case = 0 ; // ( else do )
+  int max = mFunctionList[pos].statement.size() ;
+  if ( max > 2 )
+    for ( int j = 0 ; j < typeset * 2 ; j++ )
+      printf( " " ) ;
   for ( int i = 1 ; i < mFunctionList[pos].statement.size() - 1 ; i++ ) {
-    if ( ( mFunctionList[pos].statement[i].type == RIGHT_PAREN 
-           && mFunctionList[pos].statement[i+1].type != LCB ) 
-         || mFunctionList[pos].statement[i].type == LCB 
-         || ( ( mFunctionList[pos].statement[i].type == ELSE 
-                || mFunctionList[pos].statement[i].type == DO ) 
-              && mFunctionList[pos].statement[i].type != LCB ) ) {
-      //  ( if() while() ) ||   ( if(){  while() { else{  do { ) || ( else do )
-
-
-      if ( mFunctionList[pos].statement[i].type == RIGHT_PAREN 
-           && mFunctionList[pos].statement[i+1].type == SEMICOLON ) {
-        printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
-        typeset-- ;
-
+    if ( mFunctionList[pos].statement[i+1].type == RIGHT_PAREN
+         || mFunctionList[pos].statement[i+1].type == LEFT_PAREN
+         || mFunctionList[pos].statement[i+1].type == AND
+         || mFunctionList[pos].statement[i+1].type == OR
+         || mFunctionList[pos].statement[i+1].type == ADD
+         || mFunctionList[pos].statement[i+1].type == MINUS
+         || mFunctionList[pos].statement[i+1].type == EQ
+         || mFunctionList[pos].statement[i+1].type == NEQ
+         || mFunctionList[pos].statement[i+1].type == PP
+         || mFunctionList[pos].statement[i+1].type == MM
+         || mFunctionList[pos].statement[i+1].type == GE
+         || mFunctionList[pos].statement[i+1].type == LE
+         || mFunctionList[pos].statement[i+1].type == GREATER
+         || mFunctionList[pos].statement[i+1].type == LESS
+         || mFunctionList[pos].statement[i+1].type == PE
+         || mFunctionList[pos].statement[i+1].type == ME
+         || mFunctionList[pos].statement[i+1].type == TE
+         || mFunctionList[pos].statement[i+1].type == DE
+         || mFunctionList[pos].statement[i+1].type == RE
+         || mFunctionList[pos].statement[i+1].type == MOD
+         || mFunctionList[pos].statement[i+1].type == RS
+         || mFunctionList[pos].statement[i+1].type == LS
+         || mFunctionList[pos].statement[i+1].type == CONDITION
+         || mFunctionList[pos].statement[i+1].type == COLON  ) {
+      if ( mFunctionList[pos].statement[i].type == SEMICOLON ) {
+        printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+        for ( int j = 0 ; j < typeset * 2 ; j++ )
+          printf( " " ) ;
       } // if
-      else if ( mFunctionList[pos].statement[i].type == DO 
-                && mFunctionList[pos].statement[i+1].type == LCB ) {
+      else if ( mFunctionList[pos].statement[i].type == IDENT 
+                && ( mFunctionList[pos].statement[i+1].type == PP 
+                     || mFunctionList[pos].statement[i+1].type == MM ) ) {
+        printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // else if
+      else if ( mFunctionList[pos].statement[i].type == IDENT 
+                && mFunctionList[pos].statement[i+1].type == LEFT_PAREN ) {
+        printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // else if
+      else if ( mFunctionList[pos].statement[i].type == LEFT_PAREN 
+                && mFunctionList[pos].statement[i+1].type == RIGHT_PAREN ) {
         printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
       } // else if
       else {
+        printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // else
+    } // if
+    else if ( ( mFunctionList[pos].statement[i].type == RIGHT_PAREN 
+                && mFunctionList[pos].statement[i+1].type != LCB
+                && mFunctionList[pos].statement[i+1].type != SEMICOLON ) 
+              || mFunctionList[pos].statement[i].type == LCB 
+              || ( ( mFunctionList[pos].statement[i].type == ELSE 
+                     || mFunctionList[pos].statement[i].type == DO ) 
+                   && mFunctionList[pos].statement[i+1].type != LCB ) ) {
+      //  ( if() while() ) ||   ( if(){  while() { else{  do { ) || ( else do )
+      if ( mFunctionList[pos].statement[i].type == LCB ) {
+        // if( ) { | while( ) { | else { | do {
         printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
         typeset++ ;
-        for ( int j = 0 ; j < typeset * 2 ; j++ ) {
+        for ( int j = 0 ; j < typeset * 2 ; j++ )
           printf( " " ) ;
-        } // for
-      } // else
-
-    } // if
-    else {
-      if ( mFunctionList[pos].statement[i].type == SEMICOLON ) {
+      } // if
+      else if ( mFunctionList[pos].statement[i].type == RIGHT_PAREN 
+                && mFunctionList[pos].statement[i+1].type != LCB
+                && mFunctionList[pos].statement[i+1].type != SEMICOLON
+                && mFunctionList[pos].statement[i+1].type != AND
+                && mFunctionList[pos].statement[i+1].type != OR
+                && mFunctionList[pos].statement[i+1].type != RIGHT_PAREN ) {
+        // if() | while()
+        printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // if
+      else if ( mFunctionList[pos].statement[i].type == ELSE  
+                && mFunctionList[pos].statement[i+1].type != LCB ) {
+        // else
+        oneline_case++ ;
         printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
-        if ( mFunctionList[pos].statement[i+1].type == RCB )
-          typeset-- ;
-        for ( int j = 0 ; j < typeset * 2 ; j++ ) {
-          printf( " " ) ;
-        } // for
+      } // else if
+      else if ( mFunctionList[pos].statement[i].type == DO 
+                && mFunctionList[pos].statement[i+1].type != LCB ) {
+        printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // else if
+      else if ( mFunctionList[pos].statement[i].type == DO 
+                && mFunctionList[pos].statement[i+1].type != LCB ) {
+        printf( " " ) ;
       } // if
       else {
-        if ( mFunctionList[pos].statement[i+1].type == LB || mFunctionList[pos].statement[i+1].type == PP 
-             || mFunctionList[pos].statement[i+1].type == MM  ) {
-          printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+        typeset++ ;
+        for ( int j = 0 ; j < typeset * 2 ; j++ )
+          printf( " " ) ;
+        
+      } // else
+    } // if
+    else {
+      if ( mFunctionList[pos].statement[i].type == RCB ) {
+        // typeset-- // }, do{ a; } while();
+        if ( i + 1 < max && mFunctionList[pos].statement[i+1].type == WHILE ) {
+          // do { } while ( ) ;
+          printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
         } // if
-        else if ( mFunctionList[pos].statement[i+1].type == RCB ) {
-          printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
-          typeset-- ;
-          for ( int j = 0 ; j < typeset * 2 ; j++ ) {
-            printf( " " ) ;
-          } // for
-        } // else if
-        else if ( ( mFunctionList[pos].statement[i+1].type == WHILE 
-                    || mFunctionList[pos].statement[i+1].type == IF ) 
-                  && mFunctionList[pos].statement[i+1].type == LEFT_PAREN ) {
-          printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
-        } // else if
         else {
-          if ( mFunctionList[pos].statement[i].type == RCB ) {
-            printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
-            for ( int j = 0 ; j < typeset * 2 ; j++ ) {
-              printf( " " ) ;
-            } // for
+          printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+          if ( i + 1 < max && mFunctionList[pos].statement[i+1].type == RCB )
+            typeset-- ;
+          for ( int j = 0 ; j < typeset * 2 ; j++ )
+            printf( " " ) ;
+        } // else
+      } // else if
+      else if ( i + 1 < max && mFunctionList[pos].statement[i+1].type == LB ) {
+        // int Array[ j ]
+        printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // if
+      else if ( i + 1 < max && ( mFunctionList[pos].statement[i].type == LEFT_PAREN 
+                                 && mFunctionList[pos].statement[i+1].type == RIGHT_PAREN ) ) {
+        // test()
+        printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // if
+      else if ( i + 1 < max && ( mFunctionList[pos].statement[i].type == IDENT 
+                                 && mFunctionList[pos].statement[i+1].type == LEFT_PAREN ) ) {
+        // test(
+        printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // if
+      else if ( i + 1 < max && mFunctionList[pos].statement[i+1].type == LEFT_PAREN ) {
+        // ( ( | 
+        printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+      } // if
+      else {
+        if ( mFunctionList[pos].statement[i].type == SEMICOLON ) {
+          // ;\n and print whitespace
+          printf( "%s\n", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+          if ( i + 1 < max && mFunctionList[pos].statement[i+1].type == RCB ) {
+            // ; }
+            typeset-- ;
           } // if
-          else
-            printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+
+          if ( oneline_case > 0 ) {
+            oneline_case-- ;
+            typeset-- ;
+          } // if
+
+          for ( int j = 0 ; j < typeset * 2 ; j++ )
+            printf( " " ) ;
+        } // if
+        else {
+          if ( i + 1 < max && ( mFunctionList[pos].statement[i].type != IF 
+                                && mFunctionList[pos].statement[i].type != WHILE ) 
+               && mFunctionList[pos].statement[i+1].type == LEFT_PAREN ) {
+            printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+          } // if
+          else {
+            if ( i + 1 < max && ( mFunctionList[pos].statement[i+1].type == PP 
+                                  || mFunctionList[pos].statement[i+1].type == MM ) ) {
+              printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+            } // if
+            else if ( mFunctionList[pos].statement[i].type == PP 
+                      || mFunctionList[pos].statement[i].type == MM ) {
+              printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+            } // else if
+            else if ( i + 1 < max && ( mFunctionList[pos].statement[i+1].type == COMMA ) ) {
+              printf( "%s", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+            } // if
+            else {
+              printf( "%s ", mFunctionList[pos].statement[i].tokenValue.c_str() ) ;
+            } // else
+          } // else
         } // else
       } // else
     } // else
@@ -3454,7 +3567,7 @@ int main() {
   Token token ;
   bool jumpOut = false ;
   Parser parser ;
-  Scanner scanner;
+  Scanner scanner ;
   // scanf( "%d%c", &uTestNum, &ch ) ;
   printf( "Our-C running ...\n" ) ;
   while ( jumpOut != true ) {
